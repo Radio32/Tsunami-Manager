@@ -17,6 +17,7 @@ import { renderCard } from './views/card.js';
 import { renderExport } from './views/exportview.js';
 import { renderLive } from './views/liveview.js';
 import { renderInspector, audition, stopAudition } from './views/inspector.js';
+import { renderGlobal, toggleGlobal } from './views/global.js';
 import { stopAll } from './audio.js';
 import { sim, stopAllSim } from './sim.js';
 
@@ -33,7 +34,7 @@ const VIEWS = [
 
 // ---------- render scheduling ----------
 
-const dirty = { header: true, nav: true, main: true, insp: true };
+const dirty = { header: true, nav: true, main: true, insp: true, global: true };
 let scheduled = false, pointerDown = false, renderedBank = null;
 
 function schedule(parts) {
@@ -46,9 +47,10 @@ function schedule(parts) {
 const PROJECT_CHANGES = new Set(['update', 'import', 'renumber', 'inbox', 'delete', 'duplicate', 'edit', 'replace', 'split', 'synced', 'trigger', 'settings', 'ini', 'undo', 'load', 'render']);
 
 subscribe(reason => {
-  if (PROJECT_CHANGES.has(reason)) { state.issues = validateProject(state.project); schedule(['header', 'nav', 'main', 'insp']); return; }
+  if (PROJECT_CHANGES.has(reason)) { state.issues = validateProject(state.project); schedule(['header', 'nav', 'main', 'insp', 'global']); return; }
   switch (reason) {
     case 'save': schedule(['header']); break;
+    case 'global': schedule(['header', 'global']); break;
     case 'audition': schedule(['insp']); break;
     case 'sim':
       if (state.ui.view === 'pads') {
@@ -104,6 +106,15 @@ function flush() {
     document.body.classList.toggle('has-selection', !!state.ui.selectedId && ['pads', 'tracks', 'midi'].includes(state.ui.view));
     dirty.insp = false;
   }
+  if (dirty.global) {
+    const g = $('#global');
+    const scroll = g.querySelector('.gdrawer-body')?.scrollTop || 0;
+    const el = renderGlobal();
+    g.replaceChildren(...(el ? [el] : []));
+    const body = g.querySelector('.gdrawer-body');
+    if (body) body.scrollTop = scroll;
+    dirty.global = false;
+  }
   restoreFocus(focus);
 }
 
@@ -147,6 +158,7 @@ function renderHeader() {
     }, errors ? `${errors} error${errors > 1 ? 's' : ''}` : warns ? `${warns} warning${warns > 1 ? 's' : ''}` : numbered.length ? 'Tsunami-safe' : 'No tracks yet'),
     h('div', { class: 'spacer' }),
     h('span', { class: 'save-state ' + save }, save === 'saved' ? 'Saved' : save === 'error' ? 'Save failed' : 'Saving…'),
+    h('button', { class: 'btn global-btn' + (state.ui.globalOpen ? ' on' : ''), title: 'Global settings: firmware, outputs, debounce, MIDI, processing (G)', onclick: () => toggleGlobal() }, icon('settings'), 'Global'),
     h('button', { class: 'icon-btn', title: 'Switch theme: Night / Parchment', onclick: toggleTheme }, icon('theme')),
     h('button', { class: 'icon-btn', title: 'Undo (⌘Z)', disabled: !canUndo(), onclick: undo }, icon('undo')),
     h('button', { class: 'icon-btn', title: 'Redo (⇧⌘Z)', disabled: !canRedo(), onclick: redo }, icon('redo')),
@@ -217,10 +229,13 @@ document.addEventListener('keydown', e => {
     const t = selectedTrack();
     if (t) audition(t); else stopAll();
   } else if (e.key === 'Escape') {
+    if (state.ui.globalOpen) { toggleGlobal(false); return; }
     stopAudition(); stopAllSim(); stopAll();
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     const ids = state.ui.multi.size > 1 ? [...state.ui.multi] : state.ui.selectedId ? [state.ui.selectedId] : [];
     if (ids.length) { e.preventDefault(); deleteTracks(ids); }
+  } else if (e.key.toLowerCase() === 'g' && !mod && !state.ui.perform) {
+    toggleGlobal();
   } else if (/^[1-8]$/.test(e.key) && e.altKey) {
     setView(VIEWS[+e.key - 1].key);
   }

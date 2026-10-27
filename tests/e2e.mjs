@@ -213,3 +213,68 @@ export async function runKits() {
   chk(st.state.issues.some(i => i.group === 'upmix' && !i.trackId), 'single mono→stereo note in preflight');
   return out;
 }
+
+// Pads: smart kit placement on 1–8, sequential fill on 9+, click audition,
+// double-click browse, pan baked into the render, output assignment.
+export async function runPads() {
+  const st = await import(A + 'state.js');
+  const imp = await import(A + 'importer.js');
+  const audio = await import(A + 'audio.js');
+  const ini = await import(A + 'ini.js');
+  const out = [];
+  const chk = (c, name) => out.push(`${c ? 'PASS' : 'FAIL'} ${name}`);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const clickModal = label => setTimeout(() => [...document.querySelectorAll('.modal .btn')].find(b => b.textContent === label)?.click(), 400);
+  const file = n => new File([wavBytes({ frames: 2000 })], n);
+  const at = num => st.state.project.tracks.find(t => t.num === num);
+
+  // kit placement into bank 5 (empty) — names deliberately shuffled
+  const bank = 5, base = bank * 16;
+  clickModal('Place samples');
+  await imp.importToPad(['Ride.wav', 'Tom Hi.wav', 'Clap 1.wav', 'Hat Open.wav', 'Kick Deep.wav', 'Closed Hat.wav', 'Snare Tight.wav', 'Conga.wav', 'Kick Punch.wav', 'Vocal Hey.wav'].map(file), base + 3);
+  const got = [1, 2, 3, 4, 5, 6, 7, 8].map(k => at(base + k)?.name);
+  chk(JSON.stringify(got) === JSON.stringify(['Kick Deep', 'Snare Tight', 'Hat Open', 'Closed Hat', 'Clap 1', 'Conga', 'Tom Hi', 'Ride']), 'kit placement: ' + got.join(' | '));
+  const inbox = st.state.project.tracks.filter(t => t.num == null).map(t => t.name);
+  chk(inbox.includes('Kick Punch') && inbox.includes('Vocal Hey'), 'extras + unmatched to Inbox');
+
+  // pads 9+: name order, stops at pad 14 (15/16 are bank nav), overflow to Inbox
+  await imp.importToPad(['c.wav', 'a.wav', 'd.wav', 'b.wav'].map(file), base + 12);
+  chk(at(base + 12)?.name === 'a' && at(base + 13)?.name === 'b' && at(base + 14)?.name === 'c' && !at(base + 15) && st.state.project.tracks.some(t => t.name === 'd' && t.num == null), 'pad 12 fill: a,b,c then Inbox');
+
+  // single file on a kit pad goes exactly there, displacing the old one
+  await imp.importToPad([file('Big Kick.wav')], base + 1);
+  chk(at(base + 1)?.name === 'Big Kick' && st.state.project.tracks.some(t => t.name === 'Kick Deep' && t.num == null), 'single drop replaces pad, old to Inbox');
+
+  // click auditions + selects; second quick click opens the file browser
+  const pads = await import(A + 'views/pads.js');
+  pads.setBank(bank); st.setView('pads');
+  await sleep(300);
+  let pickerOpened = 0;
+  const realClick = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function () { if (this.type === 'file') pickerOpened++; else realClick.call(this); };
+  document.querySelector('.pad[data-trig="2"]').click();
+  await sleep(250);
+  chk(st.state.ui.selectedId === at(base + 2).id && !pickerOpened, 'single click selects pad (and auditions)');
+  document.querySelector('.pad[data-trig="2"]').click();
+  await sleep(50);
+  chk(pickerOpened === 1, 'double click opens the file browser');
+  HTMLInputElement.prototype.click = realClick;
+
+  // pan baked into the stereo render
+  const t = at(base + 2);
+  st.update(p => { p.tracks.find(x => x.id === t.id).edits.pan = -100; }, { reason: 'edit' });
+  const r = await audio.getRendered(st.trackById(t.id), st.state.project);
+  const peakR = Math.max(...r.channels[1].map(Math.abs)), peakL = Math.max(...r.channels[0].map(Math.abs));
+  chk(peakR < 1e-6 && peakL > 0.5, `pan hard left: L ${peakL.toFixed(2)}, R ${peakR.toExponential(1)}`);
+
+  // output assignment via the matrix in the Global drawer
+  const g = await import(A + 'views/global.js');
+  g.toggleGlobal(true);
+  await sleep(300);
+  const cell = [...document.querySelectorAll('.omatrix tbody tr')][2].querySelectorAll('.om-cell')[2]; // trigger 3 → pair 3
+  cell.click();
+  await sleep(300);
+  chk(st.state.project.triggers[2].output === 2 && ini.buildIni(st.state.project).includes('#TRIG 03, 80, 0, 2, 1, ,'), 'matrix sets trigger 3 → pair 3 (ini written)');
+  g.toggleGlobal(false);
+  return out;
+}

@@ -77,18 +77,19 @@ const tone = (freq, type, len, attack, decay, gain = 0.4) => synth(len, (ctx, ou
 async function kit(variant) {
   const p = variant ? 0.8 : 1; // second kit is lower and longer
   return [
+    // Pads 1–8 follow the kit layout: Kick, Snare, OHH, CHH, Clap, Perc 1, Perc 2, Cym.
     ['Kick', await drum(160 * p, 42 * p, 0.45 / p)],
     ['Snare', await snare(190 * p, 0.18 / p)],
-    ['Closed Hat', await hiss('highpass', 7000 * p, 0.7, 0.05, 0.12)],
     ['Open Hat', await hiss('highpass', 6500 * p, 0.7, 0.45, 0.6)],
+    ['Closed Hat', await hiss('highpass', 7000 * p, 0.7, 0.05, 0.12)],
     ['Clap', await clap()],
     ['Low Tom', await drum(120 * p, 70 * p, 0.4)],
+    ['Rim', await hiss('bandpass', 2500 * p, 6, 0.03, 0.08, 0.9)],
+    ['Crash', await hiss('highpass', 4000 * p, 0.5, 1.4, 1.6, 0.5)],
     ['Mid Tom', await drum(170 * p, 100 * p, 0.35)],
     ['High Tom', await drum(240 * p, 140 * p, 0.3)],
-    ['Rim', await hiss('bandpass', 2500 * p, 6, 0.03, 0.08, 0.9)],
     ['Cowbell', await bell(540 * p, 800 * p, 0.35)],
     ['Shaker', await hiss('bandpass', 9000, 2, 0.07, 0.15, 0.5)],
-    ['Crash', await hiss('highpass', 4000 * p, 0.5, 1.4, 1.6, 0.5)],
     ['Bass C', await tone(65.4 * p, 'sawtooth', 0.8, 0.005, 0.7)],
     ['Bass G', await tone(98 * p, 'sawtooth', 0.8, 0.005, 0.7)],
   ];

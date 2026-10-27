@@ -4,9 +4,11 @@ import { h, fmtTime, pad4, clamp } from '../util.js';
 import { state, emit, trackByNum, select, update } from '../state.js';
 import { FUNC_BY_CODE, TRIGGER_BANKS } from '../constants.js';
 import { thumb } from './waveform.js';
-import { importFiles } from '../importer.js';
+import { importFiles, importToPad } from '../importer.js';
+import { slotFor } from '../kit.js';
+import { cycleTriggerOutput, outputLabel } from './outputs.js';
+import { audition, stopAudition, fmtPan } from './inspector.js';
 import { setTrackNum, pickFiles } from '../actions.js';
-import { audition } from './inspector.js';
 import { sim, press, release, activeTracks, stopAllSim, setSimBank } from '../sim.js';
 import { segmented, toggle, icon, badge } from '../ui.js';
 import { issuesByTrack } from '../validate.js';
@@ -33,8 +35,32 @@ function dropTarget(el, num) {
     el.classList.remove('drop');
     const id = e.dataTransfer.getData(DND_TYPE);
     if (id) setTrackNum(id, num);
-    else if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files, { at: num });
+    else if (e.dataTransfer.files.length) importToPad(e.dataTransfer.files, num);
   });
+}
+
+// Manual double-click detection: the first click re-renders the grid, which would
+// swallow the browser's own dblclick event.
+let lastPadClick = { key: null, at: 0 };
+function isDoubleClick(key) {
+  const now = performance.now();
+  const dbl = lastPadClick.key === key && now - lastPadClick.at < 380;
+  lastPadClick = dbl ? { key: null, at: 0 } : { key, at: now };
+  return dbl;
+}
+
+async function browseForPad(num) {
+  stopAudition();
+  const files = await pickFiles({ multiple: true, accept: 'audio/*,.wav,.aif,.aiff,.flac,.mp3,.ogg,.m4a' });
+  if (files.length) importToPad(files, num);
+}
+
+function outButton(n, trig) {
+  return h('button', {
+    class: 'pad-out', title: `Trigger ${n} plays on ${outputLabel(trig.output)} — click for the next output`,
+    onclick: e => { e.stopPropagation(); cycleTriggerOutput(n); },
+    onpointerdown: e => e.stopPropagation(),
+  }, `→${outputLabel(trig.output, true)}`);
 }
 
 export function dragSource(el, id) {
@@ -55,7 +81,9 @@ function padEl(n, tracks, issues, layout) {
   const active = activeTracks();
   const fl = sim.flash[n];
   const flashing = fl && performance.now() - fl.at < 160;
+  const slot = slotFor(n);
   const classes = ['pad'];
+  if (slot) classes.push('kit');
   if (trig.func !== 1) classes.push('func');
   else if (!t) classes.push('empty');
   if (t && state.ui.selectedId === t.id) classes.push('selected');
@@ -69,16 +97,18 @@ function padEl(n, tracks, issues, layout) {
   const el = h('div', {
     class: classes.join(' '), role: 'button', tabindex: 0, 'data-trig': n,
     'aria-label': `Trigger ${n}${t ? ', ' + t.name : ''}`,
-    title: trig.func === 1 ? `Trigger ${n} · track ${num}${t ? ' · ' + t.name : ' (empty — drop audio here)'}` : `Trigger ${n}: ${f.label}. ${f.help}`,
+    title: trig.func === 1
+      ? `Trigger ${n} · track ${num}${slot ? ` · ${slot.label} slot` : ''}${t ? ' · ' + t.name : ''}\nClick: audition · Double-click: browse for samples · Drop files here${slot ? ' (several files = smart kit placement on pads 1–8)' : ''}`
+      : `Trigger ${n}: ${f.label}. ${f.help}`,
   },
     h('div', { class: 'pad-top' },
       h('span', { class: 'pad-trig' }, `${n}`, h('small', null, state.ui.perform ? PERFORM_KEYS[n - 1].toUpperCase() : '')),
       trig.func === 1 ? h('span', { class: 'pad-tnum' }, pad4(num)) : null,
+      slot && trig.func === 1 ? h('span', { class: 'pad-slot' }, slot.short) : null,
       h('span', { class: 'pad-badges' },
         typeBadge,
         trig.loop ? badge('LOOP', 'loop') : null,
         !trig.poly && f.plays ? badge('SOLO', 'type') : null,
-        trig.output ? badge(`OUT ${trig.output === 8 ? 'ALL' : trig.output + 1}`, 'out') : null,
         trig.gain ? badge(`${trig.gain > 0 ? '+' : ''}${trig.gain}dB`, 'out') : null)),
     trig.func !== 1
       ? h('div', { class: 'pad-func' },
@@ -88,19 +118,21 @@ function padEl(n, tracks, issues, layout) {
         ? [h('div', { class: 'pad-name' }, t.name), thumb(t, layout === '2x8' ? 110 : 150, 26),
           h('div', { class: 'pad-foot' },
             h('span', null, fmtTime((t.edits.trimEnd ?? t.info?.duration ?? 0) - (t.edits.trimStart || 0))),
-            sev ? h('span', { class: 'sev-dot ' + sev }, icon('warn')) : null)]
-        : h('div', { class: 'pad-empty' }, 'drop audio'));
+            p.mode === 'stereo' && t.edits.pan ? h('span', { class: 'pad-pan', title: 'Pan' }, fmtPan(t.edits.pan)) : null,
+            sev ? h('span', { class: 'sev-dot ' + sev }, icon('warn')) : null,
+            state.ui.perform ? null : outButton(n, trig))]
+        : [h('div', { class: 'pad-empty' }, slot ? h('strong', null, slot.label) : null, h('span', null, 'drop or double-click')),
+          state.ui.perform ? null : h('div', { class: 'pad-foot' }, h('span'), outButton(n, trig))]);
 
   if (state.ui.perform) {
     el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); press(n); });
     el.addEventListener('pointerup', () => release(n));
   } else {
     el.addEventListener('click', () => {
-      if (t) select(t.id);
-      else if (trig.func !== 1) { state.ui.triggerFocus = n; state.ui.view = 'triggers'; emit('view'); }
-    });
-    el.addEventListener('dblclick', () => {
+      if (trig.func !== 1) { state.ui.triggerFocus = n; state.ui.view = 'triggers'; emit('view'); return; }
+      if (isDoubleClick(num)) { browseForPad(num); return; }
       if (!t) return;
+      select(t.id);
       if (midi.output && midi.followSelection) midiPlayTrack(t.num);
       else audition(t);
     });

@@ -3,7 +3,8 @@
 import { AUDIO_EXT, MAX_TRACK } from './constants.js';
 import { decodeBytes, analyze, overview, cacheDecoded } from './audio.js';
 import { putSource } from './store.js';
-import { update, newTrack, trackByNum, nextFreeNum, select, replaceProject } from './state.js';
+import { update, newTrack, trackByNum, nextFreeNum, select, replaceProject, isKitSlot } from './state.js';
+import { kitDialog } from './kit.js';
 import { parseTrackFileName, labelFromSourceName } from './naming.js';
 import { parseIni } from './ini.js';
 import { readZip } from './zip.js';
@@ -47,25 +48,12 @@ export async function importFiles(fileList, placement = {}) {
   if (zipFile) return openProjectBundle(zipFile);
   if (iniFile) await importIniFile(iniFile);
 
-  const audio = files.filter(f => AUDIO_EXT.test(f.name) && !f.name.startsWith('._')).sort((a, b) => collator.compare(a.name, b.name));
+  const audio = audioOnly(files);
   if (!audio.length) {
     if (!iniFile) toast('No audio files found in the drop.', { kind: 'warn' });
     return [];
   }
-  const job = startJob('Importing', audio.length);
-  const results = [];
-  const failed = [];
-  for (const f of audio) {
-    if (job.cancelled) break;
-    try {
-      results.push({ file: f, ...(await ingestFile(f)) });
-    } catch (e) {
-      console.warn(f.name, e);
-      failed.push(f.name);
-    }
-    job.tick(1, f.name);
-  }
-  job.end();
+  const { results, failed } = await ingestAll(audio);
 
   let firstId = null;
   update(p => {
@@ -102,15 +90,90 @@ export async function importFiles(fileList, placement = {}) {
   if (firstId) select(firstId);
   const inbox = results.length && placement.at == null && !placement.useNames && !placement.autoNumber;
   toast(`Imported ${results.length} file${results.length === 1 ? '' : 's'}${inbox ? ' into the Inbox' : ''}.`, { kind: 'ok' });
-  if (failed.length) {
-    modal({
-      title: `${failed.length} file${failed.length === 1 ? '' : 's'} could not be decoded`,
-      body: h('div', null,
-        h('p', null, 'Your browser could not decode these files. Try converting them to WAV or FLAC first.'),
-        h('ul', { class: 'plain' }, failed.map(n => h('li', null, n)))),
-    });
-  }
+  showFailed(failed);
   return results;
+}
+
+async function ingestAll(files) {
+  const job = startJob('Importing', files.length);
+  const results = [], failed = [];
+  try {
+    for (const f of files) {
+      if (job.cancelled) break;
+      try {
+        results.push({ file: f, ...(await ingestFile(f)) });
+      } catch (e) {
+        console.warn(f.name, e);
+        failed.push(f.name);
+      }
+      job.tick(1, f.name);
+    }
+  } finally {
+    job.end();
+  }
+  return { results, failed };
+}
+
+function showFailed(failed) {
+  if (!failed.length) return;
+  modal({
+    title: `${failed.length} file${failed.length === 1 ? '' : 's'} could not be decoded`,
+    body: h('div', null,
+      h('p', null, 'Your browser could not decode these files. Try converting them to WAV or FLAC first.'),
+      h('ul', { class: 'plain' }, failed.map(n => h('li', null, n)))),
+  });
+}
+
+const audioOnly = files => [...files].filter(f => AUDIO_EXT.test(f.name) && !f.name.startsWith('._')).sort((a, b) => collator.compare(a.name, b.name));
+
+// Import with explicit numbers. A track already on a target number moves to the Inbox.
+export async function importAssigned(assignments) {
+  const { results, failed } = await ingestAll(assignments.map(a => a.file));
+  const numOf = new Map(assignments.map(a => [a.file, a.num]));
+  let firstId = null, placed = 0, inboxed = 0;
+  update(p => {
+    for (const r of results) {
+      const num = numOf.get(r.file) ?? null;
+      const t = newTrack({ name: labelFromSourceName(r.file.name), sourceId: r.sourceId, sourceName: r.file.name, info: r.info });
+      const parsed = parseTrackFileName(r.file.name);
+      if (parsed?.midi) t.midi = { loop: parsed.midi.loop, out: parsed.midi.out };
+      if (num != null) {
+        for (const old of p.tracks) if (old.num === num) old.num = null;
+        t.num = num; placed++;
+        firstId ??= t.id;
+      } else inboxed++;
+      p.tracks.push(t);
+    }
+  }, { reason: 'import' });
+  if (firstId) select(firstId);
+  if (results.length) toast(`Placed ${placed} sample${placed === 1 ? '' : 's'}${inboxed ? `, ${inboxed} to the Inbox` : ''}.`, { kind: 'ok' });
+  showFailed(failed);
+  return results;
+}
+
+/**
+ * Files dropped on (or browsed for) a pad.
+ *  - one file: goes exactly on that pad
+ *  - several files on pads 1–8: smart kit placement by name (Kick, Snare, OHH, CHH, Clap, Perc 1, Perc 2, Cym)
+ *  - several files on pads 9+: filled onto that pad and the following ones in name order; overflow to the Inbox
+ */
+export async function importToPad(fileList, num) {
+  const files = [...fileList];
+  if (files.some(f => /\.(zip|ntm|ini)$/i.test(f.name))) return importFiles(files, { at: num });
+  const audio = audioOnly(files);
+  if (!audio.length) { toast('No audio files found.', { kind: 'warn' }); return []; }
+  const pad = ((num - 1) % 16) + 1, bank = Math.floor((num - 1) / 16);
+  if (audio.length === 1) return importAssigned([{ file: audio[0], num }]);
+  if (pad <= 8) {
+    const plan = await kitDialog(audio, bank);
+    return plan ? importAssigned(plan) : [];
+  }
+  const slots = [];
+  for (let k = pad; k <= 16; k++) if (isKitSlot(bank * 16 + k)) slots.push(bank * 16 + k);
+  const plan = audio.map((file, i) => ({ file, num: slots[i] ?? null }));
+  const over = plan.filter(x => x.num == null).length;
+  if (over) toast(`Only ${slots.length} pad${slots.length === 1 ? '' : 's'} from pad ${pad} up — ${over} sample${over === 1 ? '' : 's'} go to the Inbox.`, { kind: 'warn', ms: 5000 });
+  return importAssigned(plan);
 }
 
 export async function importIniFile(file) {

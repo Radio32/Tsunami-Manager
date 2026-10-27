@@ -88,6 +88,15 @@ async function gainDialog(ids) {
   if (ok) A.patchEdits(ids, { gain: g });
 }
 
+async function panDialog(ids) {
+  let v = 0;
+  const ok = await modal({
+    title: 'Set pan', body: field('Pan (−100 = left, 100 = right), written into the WAV', numberInput(0, x => { v = Math.max(-100, Math.min(100, Math.round(x || 0))); }, { min: -100, max: 100, step: 5 })),
+    actions: [{ label: 'Cancel', value: false }, { label: 'Apply', value: true, primary: true }],
+  });
+  if (ok) A.patchEdits(ids, { pan: v });
+}
+
 function batchBar(ids) {
   const mono = state.project.mode === 'mono';
   return h('div', { class: 'batch' },
@@ -95,6 +104,7 @@ function batchBar(ids) {
     h('button', { class: 'btn tiny', onclick: () => numberFromDialog(ids) }, 'Number from…'),
     sel([['', 'Normalize…'], ['project', 'Project default'], ['peak', 'Peak'], ['rms', 'Loudness (RMS)'], ['none', 'Off']], '', v => v && A.patchEdits(ids, { norm: v, normTarget: null }), { class: 'tiny' }),
     h('button', { class: 'btn tiny', onclick: () => gainDialog(ids) }, 'Gain…'),
+    mono ? null : h('button', { class: 'btn tiny', onclick: () => panDialog(ids) }, 'Pan…'),
     sel([['', 'Channels…'], ...(mono ? [['auto', 'Sum L+R'], ['left', 'Left'], ['right', 'Right']] : [['auto', 'As is'], ['sum', 'Mono sum'], ['left', 'Left'], ['right', 'Right']])], '', v => v && A.patchEdits(ids, { chan: v }), { class: 'tiny' }),
     sel([['', 'MIDI…'], ['S', 'One-shot'], ['L', 'Loop'], ...Array.from({ length: mono ? 8 : 4 }, (_, i) => [`o${i + 1}`, `Output ${i + 1}`])], '',
       v => v && A.patchTracks(ids, t => { if (v === 'S') t.midi.loop = false; else if (v === 'L') t.midi.loop = true; else t.midi.out = +v.slice(1); }), { class: 'tiny' }),

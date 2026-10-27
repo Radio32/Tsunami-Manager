@@ -7,6 +7,7 @@ import { buildFileName } from '../naming.js';
 import { estimateBytes, estimatePeakDb } from '../validate.js';
 import { field, select as sel, toggle, numberInput, slider, segmented, icon, badge, modal } from '../ui.js';
 import { waveformEditor } from './waveform.js';
+import { outputCount, outputLabel, setTriggerOutput } from './outputs.js';
 import * as A from '../actions.js';
 import { midi, midiPlayTrack } from '../live.js';
 
@@ -107,7 +108,10 @@ export function renderInspector() {
         norm.mode !== 'none' ? h('span', { class: 'muted' }, norm.mode === 'rms' ? 'dB RMS' : 'dBFS') : null)),
       field('Gain', slider(e.gain, v => commit({ gain: v }), { min: -24, max: 24, step: 0.5, format: v => fmtDb(v) }), 'Applied after normalizing. Double-click to reset.')),
 
-    section('Channels',
+    section(mono ? 'Channels & output' : 'Stereo & output',
+      !mono ? field('Pan (written into the WAV)', slider(e.pan || 0, v => commit({ pan: v }), { min: -100, max: 100, step: 1, format: fmtPan }),
+        'Balance: centre is unchanged, the far side fades out. Double-click to centre.') : null,
+      padOutputField(t),
       !mono && t.info?.channels === 1 ? null : mono
         ? segmented([['auto', 'Sum L+R'], ['left', 'Left'], ['right', 'Right']], e.chan === 'sum' ? 'auto' : e.chan, v => commit({ chan: v }))
         : segmented([['auto', 'As is'], ['sum', 'Mono sum'], ['left', 'Left'], ['right', 'Right'], ['swap', 'Swap']], e.chan, v => commit({ chan: v })),
@@ -136,6 +140,17 @@ export function renderInspector() {
 }
 
 const round3 = v => Math.round(v * 1000) / 1000;
+export const fmtPan = v => (!v ? 'C' : v < 0 ? `L ${-v}` : `R ${v}`);
+
+// The pad's output is a trigger setting, so it follows the pad across all banks.
+function padOutputField(t) {
+  if (t.num == null) return null;
+  const n = ((t.num - 1) % 16) + 1;
+  const trig = state.project.triggers[n - 1];
+  if (trig.func !== 1) return null;
+  return field(`Output — trigger ${n} (all banks)`,
+    segmented(Array.from({ length: outputCount() }, (_, o) => [o, outputLabel(o, true), outputLabel(o)]), trig.output, v => setTriggerOutput(n, +v)));
+}
 
 function stat(label, value, sub, cls = '') {
   return h('div', { class: 'stat ' + cls }, h('span', { class: 'stat-l' }, label), h('span', { class: 'stat-v' }, value), sub ? h('span', { class: 'stat-s' }, sub) : null);

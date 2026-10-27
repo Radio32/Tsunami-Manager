@@ -154,6 +154,19 @@ function mapChannels(src, T, chan) {
   return [L, R];
 }
 
+// Balance-style pan baked into the file: centre is unity, the far side fades out
+// on a constant-power curve. Never boosts, so panning can't cause clipping.
+export function panGains(p) {
+  const a = Math.min(1, Math.abs(p)) * Math.PI / 2;
+  return p < 0 ? [1, Math.cos(a)] : [Math.cos(a), 1];
+}
+
+function applyPan(chs, p) {
+  const [gl, gr] = panGains(p);
+  if (gl !== 1) for (let i = 0; i < chs[0].length; i++) chs[0][i] *= gl;
+  if (gr !== 1) for (let i = 0; i < chs[1].length; i++) chs[1][i] *= gr;
+}
+
 function fadeCurve(x, curve) {
   if (curve === 'smooth') return Math.sin(x * Math.PI / 2);
   if (curve === 'exp') return x * x * x;
@@ -173,6 +186,7 @@ export function renderChannels(track, d, project) {
     if (e.reverse) seg.reverse();
     return seg;
   });
+  if (out.length === 2 && e.pan) applyPan(out, e.pan / 100);
   const len = out[0].length;
   const fi = Math.min(len, Math.round((e.fadeIn || 0) * SAMPLE_RATE / 1000));
   const fo = Math.min(len, Math.round((e.fadeOut || 0) * SAMPLE_RATE / 1000));

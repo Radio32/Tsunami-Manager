@@ -6,6 +6,8 @@ import { buildIni, parseIni, defaultTrigger, triggerLine, triggerFlags, applyFun
 import { parseTrackFileName, buildFileName, sanitizeLabel } from '../app/js/naming.js';
 import { encodeWav16 } from '../app/js/wav.js';
 import { crc32 } from '../app/js/zip.js';
+import { classify, suggestKit } from '../app/js/kit.js';
+import { panGains } from '../app/js/audio.js';
 
 const print = globalThis.print || console.log;
 let pass = 0, fail = 0;
@@ -79,6 +81,28 @@ eq([dv.getInt16(44, true), dv.getInt16(46, true), dv.getInt16(48, true), dv.getI
 // --- crc32 known vector ---
 const enc = s => Uint8Array.from(s, c => c.charCodeAt(0));
 eq(crc32(enc('123456789')).toString(16), 'cbf43926', 'crc32 check value');
+
+// --- kit classification (pads 1–8) ---
+const names = {
+  'Kick 808.wav': 'kick', 'BD01.wav': 'kick', '909_BassDrum.aif': 'kick',
+  'Snare Rim.wav': 'snare', 'SD_tight.wav': 'snare',
+  'OpenHat.wav': 'ohh', 'HH open 2.wav': 'ohh', 'OHH.wav': 'ohh',
+  'HiHatClosed.wav': 'chh', 'CH_01.wav': 'chh', 'hat.wav': 'chh', 'Closed HH.wav': 'chh',
+  'Clap.wav': 'clap', 'CLP_2.wav': 'clap',
+  'Crash Cymbal.wav': 'cym', 'CRSH.wav': 'cym', 'Ride bell.wav': 'cym',
+  'Tom Low.wav': 'perc', 'Cowbell.wav': 'perc', 'Perc 3.wav': 'perc',
+  'Pad Strings.wav': null, 'Bass C.wav': null,
+};
+for (const [n, k] of Object.entries(names)) eq(classify(n), k, `classify ${n}`);
+const fileOf = n => ({ name: n });
+const kit = suggestKit(['Perc A.wav', 'Snare.wav', 'Kick 2.wav', 'Kick 1.wav', 'Perc B.wav', 'Crash.wav', 'Vox.wav', 'Perc C.wav'].map(fileOf));
+eq(kit.slots.map(x => x && x.name), ['Kick 1.wav', 'Snare.wav', null, null, null, 'Perc A.wav', 'Perc B.wav', 'Crash.wav'], 'kit slots in order, natural sort');
+eq([kit.extras.get(0).map(x => x.name), kit.extras.get(5).map(x => x.name), kit.unmatched.map(x => x.name)], [['Kick 2.wav'], ['Perc C.wav'], ['Vox.wav']], 'kit extras + unmatched');
+
+// --- pan law: never boosts, centre is unity ---
+eq(panGains(0), [1, 1], 'pan centre');
+eq(panGains(-1).map(x => +x.toFixed(6)), [1, 0], 'pan hard left');
+eq(panGains(0.5).map(x => +x.toFixed(4)), [0.7071, 1], 'pan half right');
 
 print(`${pass} passed, ${fail} failed`);
 if (fail && typeof process !== 'undefined') process.exit(1);

@@ -17,13 +17,16 @@ Projects autosave in the browser, audio included. The browser stores them per ad
 
 - **Stereo firmware.** The stereo firmware won't play mono files, so every mono source is written as stereo (same signal on L and R) on export, and Tracks marks it `M→S`. Files already on a card or in a sample folder can be converted in the **Card doctor** (*Convert mono → stereo*): overwrite in place, write copies to another folder, or download a ZIP.
 - **Bank navigation on triggers 15/16.** New projects set T15 = Trigger Bank Down and T16 = Trigger Bank Up. Each bank is then a 14-sound kit (tracks 1–14, 17–30, 33–46…). Auto-numbering and "next free" skip the 15/16 slots, and the preflight flags any track that lands there, since no trigger can reach it.
+- **Global drawer.** The **Global** button (or **G**) opens firmware, output levels, output assignment, debounce, MIDI and processing from any page.
+- **Output assignment.** A trigger × output grid (4 stereo pairs: jacks 1/2, 3/4, 5/6, 7/8) in the Global drawer and on Settings, a quick output button on every pad, and an output picker in the inspector. It's written to the `#TRIG` output field, so it applies to that pad in every bank.
+- **Pan.** Per-track pan in the inspector (and *Pan…* for several tracks in Tracks), written into the exported WAV. It's balance-style: centre is unchanged and the far side fades out, so panning never adds clipping.
 - **Themes.** *Night* and *Parchment*, built from the project mood board (Deep Emerald, Verdigris, Turquoise, Cosmic Teal, Night Blue, Moss Green, Desert Sand). Toggle in the header.
 
 ## What it does
 
 | Page | Purpose |
 |---|---|
-| **Pads** | The 16 trigger inputs × 256 trigger banks. Drop files on pads, drag pads to swap, view a 256-bank overview map. *Lanes* shows each trigger across banks (the Nutella "numbering sheet"). *Perform* emulates the hardware: trigger functions, bank up/down, gates, latches, round-robin, synced sets. Keys 1–8 and Q–I play the triggers. |
+| **Pads** | The 16 trigger inputs × 256 trigger banks. **Click** a pad to audition it, **double-click** to browse for samples, drag pads to swap. **Pads 1–8 are the kit pads** (Kick, Snare, OHH, CHH, Clap, Perc 1, Perc 2, Cym, tinted differently): drop or browse several files onto one of them and the files are recognised by name and offered in a placement dialog. Several files on pads 9–14 fill those pads in name order. Each pad has a quick output button (→1…→4). *Lanes* shows each trigger across banks. *Perform* emulates the hardware. Keys 1–8 and Q–I play the triggers. |
 | **Tracks** | Every track in a table: search, filters, multi-select batch edits (number from…, normalize, gain, channels, MIDI flags, auto-trim, synced set). |
 | **MIDI map** | 32 MIDI banks × 128 notes (track = bank × 128 + note), with the per-file `_L3`/`_S4` loop/output flag. Note names follow either C3=60 (as in the Nutella manual) or C4=60. |
 | **Triggers** | All 14 trigger functions, Edge/Level/Latch, range, output, gain, retrigger/poly/loop/lock. Presets: drum kits + bank switch, gate/sustain, round-robin, stem launcher, one output per trigger. A live `tsunami.ini` preview. |

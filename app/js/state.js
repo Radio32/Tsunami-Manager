@@ -11,7 +11,7 @@ export function defaultEdits() {
   return {
     gain: 0, norm: 'project', normTarget: null,
     trimStart: 0, trimEnd: null, fadeIn: 0, fadeOut: 0, fadeCurve: 'linear',
-    chan: 'auto', reverse: false,
+    chan: 'auto', reverse: false, pan: 0,
   };
 }
 
