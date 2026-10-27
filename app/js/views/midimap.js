@@ -5,7 +5,7 @@ import { state, emit, trackByNum, select, update } from '../state.js';
 import { MIDI_BANKS } from '../constants.js';
 import { audition } from './inspector.js';
 import { dragSource } from './pads.js';
-import { importFiles } from '../importer.js';
+import { importFiles, droppedFiles } from '../importer.js';
 import { setTrackNum } from '../actions.js';
 import { midi, midiPlayTrack, midiProgram } from '../live.js';
 import { segmented, icon, badge } from '../ui.js';
@@ -50,7 +50,7 @@ export function renderMidiMap() {
         cell.addEventListener('drop', e => {
           e.preventDefault(); e.stopPropagation(); cell.classList.remove('drop');
           const id = e.dataTransfer.getData(DND_TYPE);
-          if (id) setTrackNum(id, num); else if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files, { at: num });
+          if (id) setTrackNum(id, num); else if (e.dataTransfer.files.length) droppedFiles(e.dataTransfer).then(files => importFiles(files, { at: num }));
         });
       }
       cells.push(cell);

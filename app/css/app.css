@@ -565,3 +565,19 @@ table.omatrix tr.off .om-n { color: var(--faint); }
 /* kit placement dialog */
 .kit-table select { width: 100%; }
 .kit-table td { padding: 5px 8px; }
+
+/* kit placement grid (bank × pad) */
+.kp-wrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: var(--radius-s); }
+table.kp { border-collapse: separate; border-spacing: 2px; font-size: 11.5px; width: 100%; }
+table.kp thead th { position: sticky; top: 0; background: var(--panel); font: 600 10px var(--mono); color: var(--accent-2); padding: 4px 2px; white-space: nowrap; }
+table.kp thead th span { color: var(--faint); }
+.kp-bank { text-align: left; white-space: nowrap; padding: 2px 6px; display: flex; flex-direction: column; line-height: 1.2; }
+.kp-bank .muted { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.kp-cell { background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; padding: 4px 5px; min-width: 70px; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.kp-cell.has { background: color-mix(in srgb, var(--emerald) 28%, var(--panel)); border-color: color-mix(in srgb, var(--verdigris) 40%, var(--line)); }
+.kp-cell.repl::before { content: "↻ "; color: var(--warn); }
+.kp-cell.off { opacity: .4; cursor: default; text-align: center; font: 10px var(--mono); }
+.kp-cell:hover:not(.off) { border-color: var(--accent); }
+.kp-cell select { width: 100%; font-size: 11px; padding: 1px 2px; }
+.kitplan { display: flex; flex-direction: column; gap: 10px; }
+.modal.wide { width: min(980px, 100%); }

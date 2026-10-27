@@ -4,7 +4,7 @@ import { h, fmtTime, pad4, clamp } from '../util.js';
 import { state, emit, trackByNum, select, update } from '../state.js';
 import { FUNC_BY_CODE, TRIGGER_BANKS } from '../constants.js';
 import { thumb } from './waveform.js';
-import { importFiles, importToPad } from '../importer.js';
+import { importFiles, importToPad, droppedFiles } from '../importer.js';
 import { slotFor } from '../kit.js';
 import { cycleTriggerOutput, outputLabel } from './outputs.js';
 import { audition, stopAudition, fmtPan } from './inspector.js';
@@ -35,7 +35,7 @@ function dropTarget(el, num) {
     el.classList.remove('drop');
     const id = e.dataTransfer.getData(DND_TYPE);
     if (id) setTrackNum(id, num);
-    else if (e.dataTransfer.files.length) importToPad(e.dataTransfer.files, num);
+    else if (e.dataTransfer.files.length) droppedFiles(e.dataTransfer).then(files => importToPad(files, num));
   });
 }
 

@@ -4,7 +4,7 @@ import { AUDIO_EXT, MAX_TRACK } from './constants.js';
 import { decodeBytes, analyze, overview, cacheDecoded } from './audio.js';
 import { putSource } from './store.js';
 import { update, newTrack, trackByNum, nextFreeNum, select, replaceProject, isKitSlot } from './state.js';
-import { kitDialog } from './kit.js';
+import { kitDialog, byName } from './kit.js';
 import { parseTrackFileName, labelFromSourceName } from './naming.js';
 import { parseIni } from './ini.js';
 import { readZip } from './zip.js';
@@ -124,7 +124,53 @@ function showFailed(failed) {
   });
 }
 
-const audioOnly = files => [...files].filter(f => AUDIO_EXT.test(f.name) && !f.name.startsWith('._')).sort((a, b) => collator.compare(a.name, b.name));
+/**
+ * Files from a drop, including the contents of dropped folders (scanned recursively).
+ * Each file gets `_folder` = the top-level folder it came from ('' for loose files).
+ * Must be called synchronously inside the drop handler: the browser clears the
+ * DataTransfer items once the handler yields.
+ */
+export function droppedFiles(dt) {
+  const entries = [...(dt.items || [])].map(i => (i.kind === 'file' ? i.webkitGetAsEntry?.() : null));
+  if (!entries.some(e => e?.isDirectory)) {
+    const files = [...dt.files];
+    files.forEach(f => { f._folder = ''; });
+    return Promise.resolve(files);
+  }
+  const loose = [...dt.files];
+  return (async () => {
+    const out = [];
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      if (!e) continue;
+      if (e.isFile) {
+        const f = await new Promise((res, rej) => e.file(res, rej)).catch(() => loose[i]);
+        if (f) { f._folder = ''; out.push(f); }
+      } else await walk(e, e.name, out);
+    }
+    return out;
+  })();
+}
+
+async function walk(dir, top, out, depth = 0) {
+  if (depth > 8) return;
+  const reader = dir.createReader();
+  for (;;) {
+    const batch = await new Promise((res, rej) => reader.readEntries(res, rej)).catch(() => []);
+    if (!batch.length) break;
+    for (const e of batch) {
+      if (e.name.startsWith('.')) continue;
+      if (e.isFile) {
+        if (!AUDIO_EXT.test(e.name)) continue;
+        const f = await new Promise((res, rej) => e.file(res, rej)).catch(() => null);
+        if (f) { f._folder = top; out.push(f); }
+      } else await walk(e, top, out, depth + 1);
+    }
+  }
+}
+
+const audioOnly = files => [...files].filter(f => AUDIO_EXT.test(f.name) && !f.name.startsWith('._'))
+  .sort((a, b) => collator.compare(a._folder || '', b._folder || '') || byName(a, b));
 
 // Import with explicit numbers. A track already on a target number moves to the Inbox.
 export async function importAssigned(assignments) {

@@ -4,7 +4,7 @@ import { h, $, fmtBytes } from './util.js';
 import { state, subscribe, boot, setView, undo, redo, canUndo, canRedo, getSaveState, update, selectedTrack, emit } from './state.js';
 import { validateProject, estimateBytes } from './validate.js';
 import { BOARDS } from './constants.js';
-import { importFiles } from './importer.js';
+import { importFiles, droppedFiles } from './importer.js';
 import { requestPersistence } from './store.js';
 import { icon, segmented, toast } from './ui.js';
 import { deleteTracks } from './actions.js';
@@ -186,7 +186,7 @@ function dropBar() {
     const z = h('div', { class: 'dz' }, h('strong', null, label), h('span', null, sub));
     z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('on'); });
     z.addEventListener('dragleave', () => z.classList.remove('on'));
-    z.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); hideDrop(); importFiles(e.dataTransfer.files, placement); });
+    z.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); hideDrop(); droppedFiles(e.dataTransfer).then(files => importFiles(files, placement)); });
     return z;
   };
   return h('div', { class: 'dropbar', id: 'dropbar' },
@@ -207,7 +207,7 @@ window.addEventListener('dragover', e => { if ([...e.dataTransfer.types].include
 window.addEventListener('drop', e => {
   e.preventDefault();
   hideDrop();
-  if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files, {});
+  if (e.dataTransfer.files.length) droppedFiles(e.dataTransfer).then(files => importFiles(files, {}));
 });
 
 // ---------- keyboard ----------

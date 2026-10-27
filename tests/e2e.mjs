@@ -235,7 +235,19 @@ export async function runPads() {
   const got = [1, 2, 3, 4, 5, 6, 7, 8].map(k => at(base + k)?.name);
   chk(JSON.stringify(got) === JSON.stringify(['Kick Deep', 'Snare Tight', 'Hat Open', 'Closed Hat', 'Clap 1', 'Conga', 'Tom Hi', 'Ride']), 'kit placement: ' + got.join(' | '));
   const inbox = st.state.project.tracks.filter(t => t.num == null).map(t => t.name);
-  chk(inbox.includes('Kick Punch') && inbox.includes('Vocal Hey'), 'extras + unmatched to Inbox');
+  chk(at(base + 17)?.name === 'Kick Punch' && inbox.includes('Vocal Hey'), 'second kick continues on pad 1 of the next bank; unmatched to Inbox');
+
+  // two dropped folders → one bank each (banks 8 and 9)
+  const inF = (folder, n) => { const f = file(n); f._folder = folder; return f; };
+  clickModal('Place samples');
+  await imp.importToPad([inF('Kit 808', 'BD.wav'), inF('Kit 808', 'SD.wav'), inF('Kit 909', 'Kick.wav'), inF('Kit 909', 'Ride.wav'), inF('Kit 909', 'Kick 2.wav')], 8 * 16 + 1);
+  chk(at(129)?.name === 'BD' && at(130)?.name === 'SD' && at(145)?.name === 'Kick' && at(152)?.name === 'Ride' && st.state.project.tracks.some(t => t.name === 'Kick 2' && t.num == null), 'one bank per folder: 808 → bank 8, 909 → bank 9');
+
+  // plain file drop goes through the folder scanner untouched
+  const dt = new DataTransfer();
+  dt.items.add(file('Loose.wav'));
+  const scanned = await imp.droppedFiles(dt);
+  chk(scanned.length === 1 && scanned[0].name === 'Loose.wav' && scanned[0]._folder === '', 'droppedFiles passes loose files through');
 
   // pads 9+: name order, stops at pad 14 (15/16 are bank nav), overflow to Inbox
   await imp.importToPad(['c.wav', 'a.wav', 'd.wav', 'b.wav'].map(file), base + 12);

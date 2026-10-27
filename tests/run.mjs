@@ -6,7 +6,7 @@ import { buildIni, parseIni, defaultTrigger, triggerLine, triggerFlags, applyFun
 import { parseTrackFileName, buildFileName, sanitizeLabel } from '../app/js/naming.js';
 import { encodeWav16 } from '../app/js/wav.js';
 import { crc32 } from '../app/js/zip.js';
-import { classify, suggestKit } from '../app/js/kit.js';
+import { classify, suggestKit, planKit } from '../app/js/kit.js';
 import { panGains } from '../app/js/audio.js';
 
 const print = globalThis.print || console.log;
@@ -98,6 +98,24 @@ const fileOf = n => ({ name: n });
 const kit = suggestKit(['Perc A.wav', 'Snare.wav', 'Kick 2.wav', 'Kick 1.wav', 'Perc B.wav', 'Crash.wav', 'Vox.wav', 'Perc C.wav'].map(fileOf));
 eq(kit.slots.map(x => x && x.name), ['Kick 1.wav', 'Snare.wav', null, null, null, 'Perc A.wav', 'Perc B.wav', 'Crash.wav'], 'kit slots in order, natural sort');
 eq([kit.extras.get(0).map(x => x.name), kit.extras.get(5).map(x => x.name), kit.unmatched.map(x => x.name)], [['Kick 2.wav'], ['Perc C.wav'], ['Vox.wav']], 'kit extras + unmatched');
+
+// --- multi-bank kit plans ---
+const kicks = ['Kick.wav', ...Array.from({ length: 9 }, (_, i) => `Kick ${i + 2}.wav`)].map(fileOf);
+const percs = ['Perc 1.wav', 'Perc 2.wav', 'Perc 3.wav', 'Perc 4.wav', 'Perc 5.wav'].map(fileOf);
+const pk = planKit([...kicks, fileOf('Snare.wav'), ...percs, fileOf('Vox.wav')]);
+eq(pk.rows.length, 8, 'spread capped at 8 banks');
+eq(pk.rows.map(r => r.cells[0]?.name), kicks.slice(0, 8).map(f => f.name), 'kick 1–8 continue on pad 1 across banks');
+eq([pk.rows[0].cells[5]?.name, pk.rows[0].cells[6]?.name, pk.rows[1].cells[5]?.name, pk.rows[1].cells[6]?.name, pk.rows[2].cells[5]?.name], ['Perc 1.wav', 'Perc 2.wav', 'Perc 3.wav', 'Perc 4.wav', 'Perc 5.wav'], 'perc alternates pads 6/7 down the banks');
+eq(pk.leftovers.map(f => f.name), ['Kick 9.wav', 'Kick 10.wav', 'Vox.wav'], 'beyond 8 banks + unmatched are leftovers');
+const pr = planKit(['Rim 1.wav', 'Rim 2.wav', 'Tom 1.wav', 'Tom 2.wav', 'Tom 3.wav'].map(fileOf));
+eq(pr.rows.map(r => [r.cells[5]?.name, r.cells[6]?.name]), [['Rim 1.wav', 'Tom 1.wav'], ['Rim 2.wav', 'Tom 2.wav'], [undefined, 'Tom 3.wav']], 'perc naming styles keep to their own pad');
+eq(planKit([...kicks, fileOf('Snare.wav')], { spread: false }).rows.length, 1, 'spread off = one bank');
+const inFolder = (folder, n) => ({ name: n, _folder: folder });
+const pf = planKit([inFolder('808', 'Kick.wav'), inFolder('808', 'Snare.wav'), inFolder('909', 'BD.wav'), inFolder('909', 'Clap.wav'), inFolder('909', 'Kick alt.wav')], { perFolder: true });
+eq(pf.rows.map(r => [r.folder, r.cells[0]?.name, r.cells[1]?.name, r.cells[4]?.name]), [['808', 'Kick.wav', 'Snare.wav', undefined], ['909', 'BD.wav', undefined, 'Clap.wav']], 'one bank per folder');
+eq(pf.leftovers.map(f => f.name), ['Kick alt.wav'], 'folder extras are leftovers');
+const nine = Array.from({ length: 9 }, (_, i) => inFolder(`Kit ${i + 1}`, 'Kick.wav'));
+eq(planKit(nine, { perFolder: true }).rows.length, 8, 'max 8 folders → 8 banks');
 
 // --- pan law: never boosts, centre is unity ---
 eq(panGains(0), [1, 1], 'pan centre');
