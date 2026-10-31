@@ -291,6 +291,10 @@ export async function openProjectBundle(file) {
  */
 export async function importFolder(files, defaults = {}) {
   if (!files?.length && !files?.hidden) return [];
+  if (files.length > SCAN_LIMIT) { // a picked folder arrives whole; a dropped one stops while walking
+    const extra = { hidden: files.hidden, tooDeep: files.tooDeep, truncated: true };
+    files = Object.assign([...files].slice(0, SCAN_LIMIT), extra);
+  }
   const scan = screenFolder(files);
   if (!scan.audio.length && !scan.large.length && !scan.dupes.length) {
     toast('No audio files found in that folder.', { kind: 'warn' });

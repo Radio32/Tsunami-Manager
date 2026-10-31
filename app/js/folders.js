@@ -9,9 +9,9 @@ import { parseTrackFileName } from './naming.js';
 import { h, fmtBytes } from './util.js';
 import { modal, toggle, segmented, numberInput } from './ui.js';
 
-export const FOLDER_LIMIT = 1000;            // audio files per folder import
+export const FOLDER_LIMIT = 500;             // audio files per folder import
 export const LARGE_FILE = 50 * 1024 * 1024;  // ~5 min of stereo WAV; usually a recording, not a sample
-export const SCAN_LIMIT = 20000;             // stop walking a dropped folder after this many files
+export const SCAN_LIMIT = 4000;              // stop walking a dropped folder after this many files
 export const MAX_DEPTH = 8;
 
 // Hidden files, macOS resource forks (._*), Finder/Windows metadata and zip leftovers.

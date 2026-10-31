@@ -20,7 +20,8 @@ there is no build step. Use **Chrome or Edge** to write to the SD card and reach
   *Lanes* shows each trigger across banks; *Perform* emulates the hardware from the keyboard.
 - **Folder import:** pick or drop a folder with subfolders. A confirmation shows what will be
   imported and what's left out (hidden and system files, non-audio files, empty files, duplicates,
-  and files over 50 MB unless you include them), at most 1000 files at a time. Each folder can get
+  and files over 50 MB unless you include them), at most 500 files at a time (folders
+  over 4000 files are only partly scanned). Each folder can get
   its own trigger bank, named after the folder; you can rename the banks before importing and later
   on the Pads page.
 - **Tracks:** every track in one table, with search, filters and batch edits (numbering,

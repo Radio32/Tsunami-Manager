@@ -626,5 +626,5 @@ table.kp thead th span { color: var(--faint); }
 .fp-wrap { max-height: 46vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-s); }
 .fp-table td { white-space: nowrap; }
 .fp-path { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
-.fp-table .cell-input { width: 100%; min-width: 140px; border: 1px solid var(--line); background: var(--bg); }
+.fp-table .cell-input { width: 100%; min-width: 140px; border-color: var(--line) !important; background: var(--bg) !important; }
 @media (max-width: 640px) { .bank-name { width: 140px; } }
