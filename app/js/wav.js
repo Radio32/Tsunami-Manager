@@ -128,6 +128,9 @@ export function isAiff(ab) {
   return s.startsWith('FORM') && (s.slice(8) === 'AIFF' || s.slice(8) === 'AIFC');
 }
 
+// AIFF and AIFF-C, covering every encoding Apple tools write: NONE/twos/in16/in24/in32
+// (big-endian PCM), sowt (little-endian), raw (unsigned 8-bit), fl32/fl64, ulaw/alaw
+// and ima4 (Apple IMA ADPCM, used by older Logic/GarageBand exports).
 export function decodeAiff(ab) {
   const dv = new DataView(ab);
   const id = o => String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3));
@@ -139,36 +142,97 @@ export function decodeAiff(ab) {
       comm = {
         channels: dv.getUint16(off + 8), frames: dv.getUint32(off + 10),
         bits: dv.getUint16(off + 14), rate: readExtended(dv, off + 16),
-        comp: aifc ? id(off + 26) : 'NONE',
+        comp: aifc && size >= 22 ? id(off + 26) : 'NONE',
       };
     } else if (cid === 'SSND') {
-      ssnd = { start: off + 16 + dv.getUint32(off + 8) };
+      const start = off + 16 + dv.getUint32(off + 8);
+      ssnd = { start, end: Math.min(ab.byteLength, off + 8 + size) };
     }
     off += 8 + size + (size & 1);
   }
   if (!comm || !ssnd) throw new Error('AIFF: missing COMM or SSND chunk');
-  const { channels: nch, frames, bits, comp } = comm;
+  if (!comm.channels || !(comm.rate > 0)) throw new Error('AIFF: invalid header');
+  const comp = comm.comp.toLowerCase();
+  const nch = comm.channels;
+  if (comp === 'ima4') return { rate: comm.rate, channels: decodeIma4(dv, ssnd, nch) };
+
+  let read, bytes;
   const little = comp === 'sowt';
-  const isFloat = comp === 'fl32' || comp === 'FL32' || comp === 'fl64' || comp === 'FL64';
-  if (!['NONE', 'sowt', 'fl32', 'FL32', 'fl64', 'FL64', 'twos'].includes(comp)) throw new Error(`AIFF-C compression "${comp}" is not supported`);
-  const bytes = isFloat ? (comp.toLowerCase() === 'fl64' ? 8 : 4) : Math.ceil(bits / 8);
+  if (['none', 'twos', 'sowt', 'in16', 'in24', 'in32'].includes(comp)) {
+    const bits = comp === 'in16' ? 16 : comp === 'in24' ? 24 : comp === 'in32' ? 32 : comm.bits;
+    bytes = Math.ceil(bits / 8);
+    if (bytes === 1) read = p => dv.getInt8(p) / 128;
+    else if (bytes === 2) read = p => dv.getInt16(p, little) / 32768;
+    else if (bytes === 3) read = p => {
+      const b0 = dv.getUint8(p), b1 = dv.getUint8(p + 1), b2 = dv.getUint8(p + 2);
+      let x = little ? (b2 << 16) | (b1 << 8) | b0 : (b0 << 16) | (b1 << 8) | b2;
+      if (x & 0x800000) x -= 0x1000000;
+      return x / 8388608;
+    };
+    else if (bytes === 4) read = p => dv.getInt32(p, little) / 2147483648;
+    else throw new Error(`AIFF: ${bits}-bit samples are not supported`);
+  } else if (comp === 'raw ') { bytes = 1; read = p => (dv.getUint8(p) - 128) / 128; }
+  else if (comp === 'fl32') { bytes = 4; read = p => dv.getFloat32(p); }
+  else if (comp === 'fl64') { bytes = 8; read = p => dv.getFloat64(p); }
+  else if (comp === 'ulaw') { bytes = 1; read = p => ULAW[dv.getUint8(p)]; }
+  else if (comp === 'alaw') { bytes = 1; read = p => ALAW[dv.getUint8(p)]; }
+  else throw new Error(`AIFF-C compression “${comm.comp.trim()}” isn't supported — re-export as plain AIFF or WAV`);
+
+  const frames = Math.min(comm.frames || Infinity, Math.floor((ssnd.end - ssnd.start) / (bytes * nch)));
   const out = Array.from({ length: nch }, () => new Float32Array(frames));
   let p = ssnd.start;
-  for (let i = 0; i < frames; i++) {
-    for (let c = 0; c < nch; c++, p += bytes) {
-      if (p + bytes > ab.byteLength) break;
-      let s;
-      if (isFloat) s = bytes === 8 ? dv.getFloat64(p) : dv.getFloat32(p);
-      else if (bytes === 1) s = dv.getInt8(p) / 128;
-      else if (bytes === 2) s = dv.getInt16(p, little) / 32768;
-      else if (bytes === 3) {
-        const b0 = dv.getUint8(p), b1 = dv.getUint8(p + 1), b2 = dv.getUint8(p + 2);
-        let x = little ? (b2 << 16) | (b1 << 8) | b0 : (b0 << 16) | (b1 << 8) | b2;
-        if (x & 0x800000) x -= 0x1000000;
-        s = x / 8388608;
-      } else s = dv.getInt32(p, little) / 2147483648;
-      out[c][i] = s;
+  for (let i = 0; i < frames; i++) for (let c = 0; c < nch; c++, p += bytes) out[c][i] = read(p);
+  return { rate: comm.rate, channels: out };
+}
+
+// G.711 lookup tables (8-bit code → float).
+const ULAW = Float32Array.from({ length: 256 }, (_, u) => {
+  u = ~u & 0xff;
+  const t = (((u & 0x0f) << 3) + 0x84) << ((u & 0x70) >> 4);
+  return ((u & 0x80) ? 0x84 - t : t - 0x84) / 32768;
+});
+const ALAW = Float32Array.from({ length: 256 }, (_, a) => {
+  a ^= 0x55;
+  let t = (a & 0x0f) << 4;
+  const seg = (a & 0x70) >> 4;
+  if (seg === 0) t += 8; else if (seg === 1) t += 0x108; else t = (t + 0x108) << (seg - 1);
+  return ((a & 0x80) ? t : -t) / 32768;
+});
+
+const IMA_STEPS = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107,
+  118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166,
+  1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630,
+  9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767];
+const IMA_INDEX = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8];
+
+// Apple IMA4: per channel, 34-byte packets = 2-byte header (predictor | step index) + 64 nibbles.
+function decodeIma4(dv, ssnd, nch) {
+  const packets = Math.floor((ssnd.end - ssnd.start) / (34 * nch));
+  const out = Array.from({ length: nch }, () => new Float32Array(packets * 64));
+  let p = ssnd.start;
+  for (let k = 0; k < packets; k++) {
+    for (let c = 0; c < nch; c++) {
+      const head = dv.getUint16(p);
+      let pred = (head & 0xff80) << 16 >> 16;
+      let idx = Math.min(88, head & 0x7f);
+      const dst = out[c];
+      let o = k * 64;
+      for (let b = 0; b < 32; b++) {
+        const byte = dv.getUint8(p + 2 + b);
+        for (const n of [byte & 0x0f, byte >> 4]) {
+          const step = IMA_STEPS[idx];
+          let diff = step >> 3;
+          if (n & 1) diff += step >> 2;
+          if (n & 2) diff += step >> 1;
+          if (n & 4) diff += step;
+          pred += n & 8 ? -diff : diff;
+          pred = pred < -32768 ? -32768 : pred > 32767 ? 32767 : pred;
+          idx = Math.min(88, Math.max(0, idx + IMA_INDEX[n]));
+          dst[o++] = pred / 32768;
+        }
+      }
+      p += 34;
     }
   }
-  return { rate: comm.rate, channels: out };
+  return out;
 }
