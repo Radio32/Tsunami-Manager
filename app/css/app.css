@@ -1,79 +1,81 @@
-/* Nutella Tsunami Manager — warm "hazelnut" dark theme */
+/* Nutella Tsunami Manager — styled to match the Performer Library Manager:
+   sand paper and ink in light, deep teal-black in dark, one verdigris accent,
+   Barlow Condensed headings over IBM Plex Sans / Plex Mono. */
 
-/* Palette from the mood board: Deep Emerald 3435C, Verdigris 367U, Turquoise 3125C,
-   Cosmic Teal 327U, Night Blue 289U, Moss Green 361U, Desert Sand. */
+:root {
+  --emerald: #0e6b60; --verdigris: #3fb8a4; --turquoise: #6fb7d6; --teal: #2a8f86;
+  --night: #172321; --moss: #3d6a2a; --sand: #c9a46a; --scarab: #8a6a44;
+  --radius: 6px;
+  --radius-s: 4px;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+}
 :root, :root[data-theme="night"] {
-  --emerald: #0d5c4c; --verdigris: #45b394; --turquoise: #5bbbe8; --teal: #1e8189;
-  --night: #0e2546; --moss: #5a8a45; --sand: #e2b878; --scarab: #8a6a44;
-  --bg: #071428;
-  --bg-2: #0b1c36;
-  --panel: #0f2443;
-  --panel-2: #142d51;
-  --line: #1f3b62;
-  --line-2: #2b4f7b;
-  --text: #e4f0ec;
-  --muted: #98b1bd;
-  --faint: #627d92;
-  --accent: var(--turquoise);
-  --accent-ink: #04172b;
-  --accent-2: #52d1a8;
-  --ok: #6fd39c;
-  --warn: var(--sand);
-  --bad: #ff7d6e;
-  --wave: var(--turquoise);
-  --wave-dim: #1d4567;
-  --wave-bg: #06111f;
-  --ok-bg: #0f3a33; --warn-bg: #3a3220; --bad-bg: #3d1f26; --bad-ink: #ffb9ae;
-  --pos-bg: #103a3f; --loop-bg: #0d4438; --out-bg: #18375e; --type-bg: #2a2d55; --type-ink: #b9b5f5;
-  --row-line: #16304f; --row-hover: #0f2747; --row-sel: #173d5f; --row-multi: #12304f;
-  --code-bg: #05101e; --code-ink: #cfe6e0;
-  --key-white: #12294a; --key-black: #081629; --key-has: #134a56; --key-black-has: #0f3b46; --key-has-line: #2a8790;
-  --drop-bg: #0f3a44; --hit-bg: #1d5a6a;
-  --batch-bg: #0e3240; --batch-line: #1f6070;
-  --banner-bg: #2c2a1a; --logo-bg: #0a1d33;
-  --scrim: rgba(2, 8, 18, .62); --shadow: rgba(0, 0, 0, .5);
-  --sky: radial-gradient(1200px 420px at 12% -10%, rgba(13, 92, 76, .38), transparent 60%),
-         radial-gradient(900px 380px at 88% -15%, rgba(30, 129, 137, .30), transparent 60%),
-         radial-gradient(700px 300px at 55% 0%, rgba(91, 187, 232, .10), transparent 70%);
-  --aurora: linear-gradient(90deg, #0d5c4c, #45b394 25%, #5bbbe8 55%, #1e8189 75%, #0e2546);
-  --radius: 10px;
-  --radius-s: 6px;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
-  --display: "Avenir Next Condensed", "Futura", "Arial Narrow", system-ui, sans-serif;
+  --bg: #0a1013;
+  --bg-2: #0d1518;
+  --panel: #111a1e;
+  --panel-2: #192529;
+  --line: #24363a;
+  --line-2: #34494d;
+  --text: #e2ece8;
+  --muted: #8ea29f;
+  --faint: #5f7572;
+  --accent: #4fd6c3;
+  --accent-ink: #0a1013;
+  --accent-2: #8fd3a6;
+  --ok: #a3d17f;
+  --warn: #e2b878;
+  --bad: #e8936a;
+  --wave: #d6eae4;
+  --wave-dim: #2b4447;
+  --wave-bg: #0d1518;
+  --ok-bg: #18301f; --warn-bg: #2f2a1c; --bad-bg: #33201a; --bad-ink: #f4b89a;
+  --pos-bg: #123b39; --loop-bg: #16332a; --out-bg: #172a33; --type-bg: #232836; --type-ink: #b6bfdc;
+  --row-line: #1a282c; --row-hover: #141f23; --row-sel: #123b39; --row-multi: #11302e;
+  --code-bg: #080d10; --code-ink: #d6eae4;
+  --key-white: #192529; --key-black: #0d1518; --key-has: #123b39; --key-black-has: #0f302e; --key-has-line: #2f8f82;
+  --drop-bg: #123b39; --hit-bg: #1a5450;
+  --batch-bg: #10302e; --batch-line: #22605a;
+  --banner-bg: #2f2a1c; --logo-bg: #111a1e;
+  --scrim: rgba(2, 6, 8, .62); --shadow: rgba(0, 0, 0, .5);
+  --sky: radial-gradient(ellipse 70% 45% at 12% 0%, rgba(22, 150, 120, .16), transparent 70%),
+         radial-gradient(ellipse 60% 40% at 92% 4%, rgba(40, 90, 200, .14), transparent 70%);
+  --aurora: linear-gradient(90deg, transparent, rgba(79, 214, 195, .55) 30%, rgba(40, 90, 200, .35) 75%, transparent);
   color-scheme: dark;
 }
-/* Parchment & ink, like the mood board's sheet. */
+/* The moodboard's paper: sand, with ink-dark text. */
 :root[data-theme="parchment"] {
-  --bg: #ece0c8;
-  --bg-2: #e4d6b9;
-  --panel: #f4ecdb;
-  --panel-2: #faf5e9;
-  --line: #c9b48f;
-  --line-2: #a99069;
-  --text: #15223a;
-  --muted: #545f6c;
-  --faint: #857f71;
-  --accent: var(--teal);
+  --bg: #ebe3d0;
+  --bg-2: #e4dbc5;
+  --panel: #f7f2e6;
+  --panel-2: #fbf8f0;
+  --line: #cbbfa3;
+  --line-2: #b3a688;
+  --text: #172321;
+  --muted: #56625e;
+  --faint: #847e6e;
+  --accent: #0e6b60;
   --accent-ink: #ffffff;
-  --accent-2: var(--emerald);
-  --ok: #2c7a4c;
-  --warn: #9b6a14;
-  --bad: #b23c2c;
-  --wave: var(--teal);
-  --wave-dim: #b9c6bb;
-  --wave-bg: #efe5d0;
-  --ok-bg: #d6e6d3; --warn-bg: #efdcb2; --bad-bg: #f2d2c8; --bad-ink: #8c2414;
-  --pos-bg: #d3e4df; --loop-bg: #cfe5d9; --out-bg: #d6e1ec; --type-bg: #e1dcef; --type-ink: #4b3f8a;
-  --row-line: #dccdb0; --row-hover: #efe5d1; --row-sel: #dfe9e2; --row-multi: #e6ece3;
-  --code-bg: #fbf7ee; --code-ink: #1b2a3f;
-  --key-white: #faf5e9; --key-black: #d9cbac; --key-has: #cfe3dc; --key-black-has: #bcd6cc; --key-has-line: var(--teal);
-  --drop-bg: #d3e8e6; --hit-bg: #bfe0e2;
-  --batch-bg: #dcebe6; --batch-line: #8fbcb3;
-  --banner-bg: #efdcb2; --logo-bg: #15223a;
-  --scrim: rgba(40, 30, 15, .35); --shadow: rgba(60, 40, 10, .25);
-  --sky: radial-gradient(1000px 380px at 10% -10%, rgba(69, 179, 148, .14), transparent 60%),
-         radial-gradient(900px 360px at 90% -10%, rgba(91, 187, 232, .14), transparent 60%);
+  --accent-2: #2f6a3e;
+  --ok: #3d6a2a;
+  --warn: #8f6416;
+  --bad: #a3441f;
+  --wave: #1c3436;
+  --wave-dim: #b5ae96;
+  --wave-bg: #e0d6bf;
+  --ok-bg: #dbe5cc; --warn-bg: #efdcb2; --bad-bg: #f0d3c3; --bad-ink: #8a3317;
+  --pos-bg: #cfe3d8; --loop-bg: #d5e6d0; --out-bg: #d9e2e3; --type-bg: #e2dfea; --type-ink: #4b4a7a;
+  --row-line: #ddd2b9; --row-hover: #f0e9da; --row-sel: #dbe9e0; --row-multi: #e4ece2;
+  --code-bg: #fbf8f0; --code-ink: #172321;
+  --key-white: #fbf8f0; --key-black: #d8ccb0; --key-has: #cfe3d8; --key-black-has: #b9d4c6; --key-has-line: var(--accent);
+  --drop-bg: #cfe3d8; --hit-bg: #b4d6c9;
+  --batch-bg: #dceae2; --batch-line: #8fbcae;
+  --banner-bg: #efdcb2; --logo-bg: #172321;
+  --scrim: rgba(40, 30, 15, .35); --shadow: rgba(60, 40, 10, .22);
+  --sky: radial-gradient(ellipse 70% 45% at 12% 0%, rgba(14, 107, 96, .10), transparent 70%),
+         radial-gradient(ellipse 60% 40% at 92% 4%, rgba(30, 70, 140, .08), transparent 70%);
+  --aurora: linear-gradient(90deg, transparent, rgba(14, 107, 96, .55) 30%, rgba(30, 70, 140, .30) 75%, transparent);
   color-scheme: light;
 }
 
@@ -269,7 +271,7 @@ textarea { width: 100%; resize: vertical; }
 @keyframes nope { 0%, 100% { transform: none; } 30% { transform: translateX(-3px); } 60% { transform: translateX(3px); } }
 .pad.sev-error { border-color: var(--bad); }
 .pad-top { display: flex; align-items: center; gap: 6px; }
-.pad-trig { font: 700 15px var(--mono); color: var(--accent); min-width: 18px; }
+.pad-trig { font: 700 22px/1 var(--display); letter-spacing: .02em; color: var(--accent); min-width: 18px; }
 .pad-trig small { font-size: 10px; color: var(--faint); margin-left: 3px; }
 .pad-tnum { font: 11px var(--mono); color: var(--faint); }
 .pad-badges { margin-left: auto; display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }

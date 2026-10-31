@@ -96,7 +96,7 @@ export function waveformEditor(track, d, { onCommit, playhead }) {
     g.beginPath(); g.arc(fiX, 18, 5, 0, Math.PI * 2); g.arc(foX, 18, 5, 0, Math.PI * 2); g.fill();
     // ruler
     g.fillStyle = css('--muted');
-    g.font = '10px ui-monospace, monospace';
+    g.font = '10px "IBM Plex Mono", ui-monospace, monospace';
     const step = niceStep(total / (Wc / 70));
     for (let t = 0; t <= total; t += step) { const x = t2x(t); g.fillRect(x, 12, 1, 4); if (x > 14 && x < Wc - 30) g.fillText(fmtTime(t), x + 2, 10); }
     // playhead
