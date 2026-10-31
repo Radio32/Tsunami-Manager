@@ -30,30 +30,71 @@ const PRESETS = [
     apply: p => p.triggers.map(t => (t.num <= 8 ? { ...applyFunctionDefaults(t, 4), low: (t.num - 1) * 4 + 1, high: t.num * 4 } : defaultTrigger(t.num))),
   },
   {
-    name: 'Stem launcher (mono)', desc: 'Trigger 1 starts tracks 1–8 sample-locked on outs 1–8, trigger 2 stops them, 3 pauses, 4 resumes.',
-    mode: 'mono',
-    apply: p => p.triggers.map(t => {
-      if (t.num === 1) return { ...applyFunctionDefaults(t, 14), low: 1, high: 8 };
-      if (t.num === 2) return { ...applyFunctionDefaults(t, 7), low: 1, high: 8 };
-      if (t.num === 3) return { ...applyFunctionDefaults(t, 5), low: 1, high: 8 };
-      if (t.num === 4) return { ...applyFunctionDefaults(t, 6), low: 1, high: 8 };
-      return defaultTrigger(t.num);
-    }),
+    // Synced Set exists only in the mono firmware, so the stereo version starts each stem from its own trigger.
+    name: 'Stem launcher',
+    modes: {
+      mono: {
+        desc: 'Trigger 1 starts tracks 1–8 sample-locked on outs 1–8, trigger 2 stops them, 3 pauses, 4 resumes.',
+        apply: p => p.triggers.map(t => {
+          if (t.num === 1) return { ...applyFunctionDefaults(t, 14), low: 1, high: 8 };
+          if (t.num === 2) return { ...applyFunctionDefaults(t, 7), low: 1, high: 8 };
+          if (t.num === 3) return { ...applyFunctionDefaults(t, 5), low: 1, high: 8 };
+          if (t.num === 4) return { ...applyFunctionDefaults(t, 6), low: 1, high: 8 };
+          return defaultTrigger(t.num);
+        }),
+      },
+      stereo: {
+        desc: 'Triggers 1–4 start stereo stems 1–4, each on its own pair (1/2, 3/4, 5/6, 7/8); trigger 5 stops them, 6 pauses, 7 resumes. The stereo firmware has no Synced Set, so starts aren\'t sample-locked: patch one gate to inputs 1–4 to start them together.',
+        apply: p => p.triggers.map(t => {
+          if (t.num <= 4) return { ...defaultTrigger(t.num), output: t.num - 1 };
+          if (t.num === 5) return { ...applyFunctionDefaults(t, 7), low: 1, high: 4 };
+          if (t.num === 6) return { ...applyFunctionDefaults(t, 5), low: 1, high: 4 };
+          if (t.num === 7) return { ...applyFunctionDefaults(t, 6), low: 1, high: 4 };
+          return defaultTrigger(t.num);
+        }),
+      },
+    },
   },
   {
-    name: 'One output per trigger (mono)', desc: 'Trigger n plays on output ((n−1) mod 8)+1 — separate jacks for separate sounds.',
-    mode: 'mono',
-    apply: p => p.triggers.map(t => ({ ...defaultTrigger(t.num), output: (t.num - 1) % 8 })),
+    name: 'One output per trigger',
+    modes: {
+      mono: {
+        desc: 'Trigger n plays on output ((n−1) mod 8)+1 — separate jacks for separate sounds.',
+        apply: p => p.triggers.map(t => ({ ...defaultTrigger(t.num), output: (t.num - 1) % 8 })),
+      },
+      stereo: {
+        desc: 'Trigger n plays on stereo pair ((n−1) mod 4)+1 — triggers 1, 5, 9, 13 on jacks 1/2, triggers 2, 6, 10, 14 on 3/4, and so on.',
+        apply: p => p.triggers.map(t => ({ ...defaultTrigger(t.num), output: (t.num - 1) % 4 })),
+      },
+    },
   },
 ];
 
+const presetDesc = (pr, mode) => (pr.modes ? pr.modes[mode].desc : pr.desc);
+
 async function applyPreset(pr) {
+  let mode = state.project.mode;
+  const desc = h('p', null);
+  const note = h('p', { class: 'muted small' });
+  const show = () => {
+    desc.textContent = presetDesc(pr, mode);
+    note.textContent = (mode !== state.project.mode ? `Switches the project to the ${mode} firmware. ` : '') + 'Replaces all 16 trigger settings (undo with ⌘Z).';
+  };
+  show();
+  const pick = pr.modes ? segmented([['stereo', 'Stereo'], ['mono', 'Mono']], mode, v => {
+    mode = v;
+    for (const b of pick.children) { const on = b.textContent.toLowerCase() === v; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); }
+    show();
+  }) : null;
   const ok = await modal({
-    title: `Apply “${pr.name}”?`, body: h('p', null, pr.desc + (pr.mode === 'mono' ? ' Switches the project to the mono firmware.' : '') + ' Replaces all 16 trigger settings (undo with ⌘Z).'),
+    title: `Apply “${pr.name}”?`,
+    body: h('div', null, pick ? h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Firmware'), pick) : null, desc, note),
     actions: [{ label: 'Cancel', value: false }, { label: 'Apply', value: true, primary: true }],
   });
   if (!ok) return;
-  update(p => { if (pr.mode) p.mode = pr.mode; p.triggers = pr.apply(p); }, { reason: 'trigger' });
+  update(p => {
+    if (pr.modes) { p.mode = mode; p.triggers = pr.modes[mode].apply(p); } else p.triggers = pr.apply(p);
+  }, { reason: 'trigger' });
 }
 
 async function copyTo(n) {
@@ -125,7 +166,7 @@ function tile(t, sel) {
     h('span', { class: 'tt-flags' },
       t.type === 1 ? 'GATE' : t.type === 2 ? 'LATCH' : '',
       t.loop ? ' LOOP' : '',
-      f.plays && t.output ? ` OUT${t.output + 1}` : ''));
+      f.plays && t.output ? (state.project.mode === 'mono' ? ` OUT${t.output + 1}` : ` PAIR${t.output + 1}`) : ''));
 }
 
 export function renderTriggers() {
@@ -139,7 +180,7 @@ export function renderTriggers() {
   return h('div', { class: 'view triggers-view' },
     h('div', { class: 'toolbar' },
       h('span', { class: 'muted' }, 'Presets'),
-      PRESETS.map(pr => h('button', { class: 'btn tiny', title: pr.desc, onclick: () => applyPreset(pr) }, pr.name))),
+      PRESETS.map(pr => h('button', { class: 'btn tiny', title: presetDesc(pr, p.mode), onclick: () => applyPreset(pr) }, pr.name))),
     h('div', { class: 'ttiles' }, p.triggers.map(x => tile(x, x.num === n))),
     h('div', { class: 'triggers-main' },
       h('div', { class: 'tedit' },
