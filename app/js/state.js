@@ -34,6 +34,7 @@ export function newProject(name = 'Untitled project') {
     board: 'original',
     tracks: [],
     triggers: defaultKitTriggers(),
+    bankNames: {}, // trigger bank index → name, e.g. from an imported folder
     global: defaultGlobal(),
     processing: { norm: 'peak', peakTarget: -1, rmsTarget: -18, dither: true },
     naming: { digits: 4, sep: '_', ascii: true, alwaysSuffix: false, maxLen: 64 },
@@ -63,6 +64,7 @@ export function normalizeProject(p) {
   out.naming = { ...base.naming, ...p.naming };
   out.export = { ...base.export, ...p.export };
   out.ui = { ...base.ui, ...p.ui };
+  out.bankNames = { ...(p.bankNames || {}) };
   out.triggers = base.triggers.map((t, i) => ({ ...t, ...(p.triggers?.[i] || {}), num: i + 1 }));
   out.tracks = (p.tracks || []).map(t => {
     const n = newTrack(t);

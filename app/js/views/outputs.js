@@ -4,7 +4,7 @@
 import { h } from '../util.js';
 import { state, update } from '../state.js';
 import { FUNC_BY_CODE } from '../constants.js';
-import { KIT_SLOTS } from '../kit.js';
+import { KIT_SLOTS, triggerName } from '../kit.js';
 
 export const outputCount = () => (state.project.mode === 'mono' ? 8 : 4);
 export const outputLabel = (o, short = false) => {
@@ -45,7 +45,7 @@ export function outputMatrix() {
         const slot = t.num <= 8 ? KIT_SLOTS[t.num - 1].short : null;
         return h('tr', { class: usable ? '' : 'off' },
           h('th', null, h('span', { class: 'om-n' }, t.num),
-            h('span', { class: 'om-f' }, t.func === 1 ? (slot || 'Pad') : f.short)),
+            h('span', { class: 'om-f', title: triggerName(t) || null }, triggerName(t) || (t.func === 1 ? (slot || 'Pad') : f.short))),
           Array.from({ length: outs }, (_, o) => h('td', null,
             usable ? h('button', {
               class: 'om-cell' + (t.output === o ? ' on' : ''), 'aria-pressed': t.output === o,

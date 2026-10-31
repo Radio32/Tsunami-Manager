@@ -142,6 +142,21 @@ export async function replaceSource(id, file) {
   }, { reason: 'replace' });
 }
 
+// A folder and everything below it. Each file gets `_path` (its folder, relative to the pick).
+export function pickFolder() {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.multiple = true; input.webkitdirectory = true;
+    input.onchange = () => resolve([...input.files].map(f => {
+      const parts = (f.webkitRelativePath || f.name).split('/');
+      f._path = parts.slice(0, -1).join('/');
+      f._folder = parts[0] || '';
+      return f;
+    }));
+    input.click();
+  });
+}
+
 export function pickFiles({ multiple = true, accept = 'audio/*,.wav,.aif,.aiff,.flac,.mp3,.ogg,.m4a,.ini,.zip' } = {}) {
   return new Promise(resolve => {
     const input = document.createElement('input');

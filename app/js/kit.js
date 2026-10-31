@@ -222,7 +222,12 @@ export async function kitDialog(files, bank) {
     const placed = new Set(out.map(o => o.file));
     for (const f of files) if (!placed.has(f)) out.push({ file: f, num: null });
   }
+  // One bank per folder: name each bank after its folder.
+  if (opts.perFolder) out.bankNames = Object.fromEntries(plan.rows.map((row, r) => [bank + r, row.folder]).filter(([, n]) => n));
   return out;
 }
 
 export function slotFor(n) { return n >= 1 && n <= 8 ? KIT_SLOTS[n - 1] : null; }
+
+// The name the user gave a trigger (Presets page or trigger editor), or ''.
+export const triggerName = t => (t?.label || '').trim();

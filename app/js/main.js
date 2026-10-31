@@ -4,7 +4,7 @@ import { h, $, fmtBytes } from './util.js';
 import { state, subscribe, boot, setView, undo, redo, canUndo, canRedo, getSaveState, update, selectedTrack, emit } from './state.js';
 import { validateProject, estimateBytes } from './validate.js';
 import { BOARDS } from './constants.js';
-import { importFiles, droppedFiles } from './importer.js';
+import { importFiles, importFolder, droppedFiles } from './importer.js';
 import { requestPersistence } from './store.js';
 import { icon, segmented, toast } from './ui.js';
 import { deleteTracks } from './actions.js';
@@ -12,6 +12,7 @@ import { renderPads, padsKeydown, padsKeyup, refreshPadActivity } from './views/
 import { renderTracks } from './views/tracks.js';
 import { renderMidiMap } from './views/midimap.js';
 import { renderTriggers } from './views/triggers.js';
+import { renderPresets } from './views/presets.js';
 import { renderSettings } from './views/settings.js';
 import { renderCard } from './views/card.js';
 import { renderExport } from './views/exportview.js';
@@ -26,6 +27,7 @@ const VIEWS = [
   { key: 'tracks', label: 'Tracks', icon: 'tracks', render: renderTracks, help: 'All tracks, batch edits' },
   { key: 'midi', label: 'MIDI map', icon: 'midi', render: renderMidiMap, help: 'Notes × MIDI banks' },
   { key: 'triggers', label: 'Triggers', icon: 'triggers', render: renderTriggers, help: 'Functions & tsunami.ini' },
+  { key: 'presets', label: 'Presets', icon: 'presets', render: renderPresets, help: 'Your own trigger names & settings, saved in this browser' },
   { key: 'settings', label: 'Settings', icon: 'settings', render: renderSettings, help: 'Firmware, outputs, MIDI' },
   { key: 'card', label: 'Card doctor', icon: 'card', render: renderCard, help: 'Inspect & repair a card' },
   { key: 'live', label: 'Live', icon: 'live', render: renderLive, help: 'MIDI / serial to hardware' },
@@ -186,7 +188,12 @@ function dropBar() {
     const z = h('div', { class: 'dz' }, h('strong', null, label), h('span', null, sub));
     z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('on'); });
     z.addEventListener('dragleave', () => z.classList.remove('on'));
-    z.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); hideDrop(); droppedFiles(e.dataTransfer).then(files => importFiles(files, placement)); });
+    z.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation(); hideDrop();
+      droppedFiles(e.dataTransfer).then(files => (files.hadFolders
+        ? importFolder(files, { mode: placement.useNames || placement.autoNumber ? 'order' : 'inbox', useNames: placement.useNames })
+        : importFiles(files, placement)));
+    });
     return z;
   };
   return h('div', { class: 'dropbar', id: 'dropbar' },
@@ -207,7 +214,7 @@ window.addEventListener('dragover', e => { if ([...e.dataTransfer.types].include
 window.addEventListener('drop', e => {
   e.preventDefault();
   hideDrop();
-  if (e.dataTransfer.files.length) droppedFiles(e.dataTransfer).then(files => importFiles(files, {}));
+  if (e.dataTransfer.files.length) droppedFiles(e.dataTransfer).then(files => (files.hadFolders ? importFolder(files) : importFiles(files, {})));
 });
 
 // ---------- keyboard ----------

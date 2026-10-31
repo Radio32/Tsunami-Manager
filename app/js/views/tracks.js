@@ -4,7 +4,7 @@ import { h, fmtTime, fmtDb, pad4, trackPosition, noteName } from '../util.js';
 import { state, emit, select, update, trackByNum, nextFreeNum } from '../state.js';
 import { issuesByTrack, estimatePeakDb } from '../validate.js';
 import { effectiveNorm } from '../audio.js';
-import { importFiles } from '../importer.js';
+import { importFiles, importFolder } from '../importer.js';
 import * as A from '../actions.js';
 import { audition } from './inspector.js';
 import { dragSource } from './pads.js';
@@ -132,7 +132,8 @@ export function renderTracks() {
     sel([['num', 'Sort: number'], ['name', 'Sort: name'], ['dur', 'Sort: length'], ['peak', 'Sort: source peak']], state.ui.trackSort || 'num', v => { state.ui.trackSort = v; emit('filter'); }),
     h('div', { class: 'spacer' }),
     h('button', { class: 'btn', onclick: async () => importFiles(await A.pickFiles(), { useNames: true }) }, icon('plus'), 'Import (use numbers in names)'),
-    h('button', { class: 'btn', onclick: async () => importFiles(await A.pickFiles()) }, icon('plus'), 'Import to inbox'));
+    h('button', { class: 'btn', onclick: async () => importFiles(await A.pickFiles()) }, icon('plus'), 'Import to inbox'),
+    h('button', { class: 'btn', title: 'A folder and its subfolders — each folder can become its own named bank', onclick: async () => importFolder(await A.pickFolder()) }, icon('plus'), 'Import folder…'));
 
   if (!p.tracks.length) {
     return h('div', { class: 'view' }, toolbar, h('div', { class: 'empty-state big' },

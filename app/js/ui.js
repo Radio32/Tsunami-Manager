@@ -125,6 +125,7 @@ export function icon(name) {
     tracks: 'M4 6h16M4 12h16M4 18h10',
     midi: 'M3 5h18v14H3zM7 5v8M11 5v8M15 5v8M5 13h4M13 13h4',
     triggers: 'M12 3v4M12 17v4M3 12h4M17 12h4M12 8a4 4 0 100 8 4 4 0 000-8z',
+    presets: 'M6 3h12v18l-6-4-6 4z',
     settings: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6',
     card: 'M7 3h8l4 4v14H7zM10 3v4M13 3v4M16 7v0',
     export: 'M12 3v12M7 10l5 5 5-5M5 21h14',

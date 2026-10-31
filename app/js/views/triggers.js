@@ -7,6 +7,8 @@ import { applyFunctionDefaults, defaultTrigger, isDefaultTrigger, buildIni, func
 import { field, select as sel, toggle, numberInput, slider, segmented, badge, modal, toast, icon } from '../ui.js';
 import { serial, serialCmd } from '../live.js';
 import { downloadIni } from '../export.js';
+import { slotFor, triggerName } from '../kit.js';
+import { listPresets, getPreset, presetFromProject, applyPresetToProject } from '../presets.js';
 
 function setTrig(n, fn) {
   update(p => { p.triggers[n - 1] = fn({ ...p.triggers[n - 1] }); }, { reason: 'trigger' });
@@ -93,11 +95,51 @@ async function applyPreset(pr) {
   });
   if (!ok) return;
   update(p => {
+    const names = p.triggers.map(t => t.label || '');
     if (pr.modes) { p.mode = mode; p.triggers = pr.modes[mode].apply(p); } else p.triggers = pr.apply(p);
+    p.triggers.forEach((t, i) => { t.label = names[i]; });
   }, { reason: 'trigger' });
 }
 
-async function copyTo(n) {
+async function applyCustom(id) {
+  const pr = getPreset(id);
+  if (!pr) return;
+  const named = pr.triggers.filter(t => triggerName(t)).length;
+  const ok = await modal({
+    title: `Apply “${pr.name}”?`,
+    body: h('div', null,
+      h('p', null, `Sets all 16 triggers${named ? ` and their names (${named} named)` : ''} from your preset, for the ${pr.mode} firmware.`),
+      h('p', { class: 'muted small' }, (pr.mode !== state.project.mode ? `Switches the project to the ${pr.mode} firmware. ` : '') + 'Undo with ⌘Z.')),
+    actions: [{ label: 'Cancel', value: false }, { label: 'Apply', value: true, primary: true }],
+  });
+  if (ok) applyPresetToProject(pr);
+  else emit('view'); // reset the picker
+}
+
+async function saveAsPreset() {
+  let name = state.project.name && state.project.name !== 'Untitled project' ? `${state.project.name} triggers` : 'My triggers';
+  const input = h('input', { type: 'text', value: name, maxlength: 48, oninput: e => { name = e.target.value; } });
+  const ok = await modal({
+    title: 'Save triggers as a preset',
+    body: h('div', null, field('Preset name', input, 'Saved in this browser with every trigger\'s settings and name. Edit it on the Presets page.')),
+    actions: [{ label: 'Cancel', value: false }, { label: 'Save', value: true, primary: true }],
+  });
+  if (!ok) return;
+  const pr = presetFromProject(name.trim() || 'My triggers');
+  state.ui.presetSel = pr.id;
+  toast(`Saved “${pr.name}”. Find it on the Presets page.`, { kind: 'ok' });
+}
+
+// Shared by the Triggers page (project) and the Presets page (a stored preset):
+// `ctx.set(n, fn)` replaces trigger n with fn(copy), `ctx.all(fn)` mutates the 16-trigger array.
+export const projectCtx = {
+  set: setTrig,
+  all: fn => update(p => fn(p.triggers), { reason: 'trigger' }),
+  select: n => { state.ui.trigSel = n; emit('view'); },
+  live: true,
+};
+
+async function copyTo(n, ctx) {
   const targets = new Set();
   const ok = await modal({
     title: `Copy trigger ${n} settings to…`,
@@ -106,10 +148,12 @@ async function copyTo(n) {
     actions: [{ label: 'Cancel', value: false }, { label: 'Copy', value: true, primary: true }],
   });
   if (!ok || !targets.size) return;
-  update(p => { const src = p.triggers[n - 1]; for (const i of targets) p.triggers[i - 1] = { ...src, num: i }; }, { reason: 'trigger' });
+  ctx.all(tr => { const src = tr[n - 1]; for (const i of targets) tr[i - 1] = { ...src, num: i, label: tr[i - 1].label }; });
 }
 
-function card(t, mono) {
+export function card(t, mono, ctx = projectCtx) {
+  const setTrig = ctx.set;
+  const slot = slotFor(t.num);
   const f = FUNC_BY_CODE[t.func];
   const outputs = mono ? 8 : 4;
   const isVol = t.func === 8 || t.func === 9;
@@ -121,6 +165,11 @@ function card(t, mono) {
   return h('div', { class: 'tcard' + (def ? ' default' : ''), id: 'trig-' + t.num },
     h('div', { class: 'tcard-head' },
       h('span', { class: 'tnum' }, t.num),
+      h('input', {
+        class: 'tname', type: 'text', maxlength: 24, 'data-fk': 'tname', value: t.label || '', 'aria-label': `Trigger ${t.num} name`,
+        placeholder: slot && t.func === 1 ? slot.label : 'Name', title: 'Your name for this trigger, shown on pads, tiles and the output grid',
+        onchange: e => setTrig(t.num, x => ({ ...x, label: e.target.value.trim() })),
+      }),
       sel(FUNCS.map(x => [x.code, x.label, x.monoOnly && !mono]), t.func, v => setTrig(t.num, x => applyFunctionDefaults(x, +v)), { 'aria-label': `Trigger ${t.num} function` }),
       def ? badge('default', 'muted') : badge('custom', 'pos')),
     h('p', { class: 'tcard-help' }, f.help),
@@ -146,27 +195,29 @@ function card(t, mono) {
     h('div', { class: 'tcard-foot' },
       h('code', { class: 'muted small' }, def ? '(no ini line)' : triggerLine(t)),
       h('div', { class: 'spacer' }),
-      serial.connected ? h('button', { class: 'btn tiny', title: 'Send to Tsunami RAM over serial (until reset)', onclick: () => serialCmd.pushTrigger(t).then(() => toast(`Trigger ${t.num} sent`)) }, 'Test') : null,
-      h('button', { class: 'btn tiny', onclick: () => copyTo(t.num) }, 'Copy to…'),
-      !def ? h('button', { class: 'btn tiny', onclick: () => setTrig(t.num, () => defaultTrigger(t.num)) }, 'Reset') : null));
+      ctx.live && serial.connected ? h('button', { class: 'btn tiny', title: 'Send to Tsunami RAM over serial (until reset)', onclick: () => serialCmd.pushTrigger(t).then(() => toast(`Trigger ${t.num} sent`)) }, 'Test') : null,
+      h('button', { class: 'btn tiny', onclick: () => copyTo(t.num, ctx) }, 'Copy to…'),
+      !def ? h('button', { class: 'btn tiny', onclick: () => setTrig(t.num, x => ({ ...defaultTrigger(t.num), label: x.label })) }, 'Reset') : null));
 }
 
-function tile(t, sel) {
+export function tile(t, sel, mono, ctx = projectCtx) {
   const f = FUNC_BY_CODE[t.func];
   const def = isDefaultTrigger(t);
-  const detail = funcHasRange(t.func) ? `${t.low}–${t.high}` : t.func === 1 ? 'bank track' : '';
+  const name = triggerName(t);
+  const range = funcHasRange(t.func) ? `${t.low}–${t.high}` : t.func === 1 ? 'bank track' : '';
+  const detail = name || range;
   return h('button', {
     class: 'ttile' + (sel ? ' on' : '') + (def ? '' : ' custom') + (f.plays ? '' : ' ctl'),
-    title: `Trigger ${t.num}: ${f.label}${detail ? ' ' + detail : ''}`,
-    onclick: () => { state.ui.trigSel = t.num; emit('view'); },
+    title: `Trigger ${t.num}${name ? ` “${name}”` : ''}: ${f.label}${range ? ' ' + range : ''}`,
+    onclick: () => ctx.select(t.num),
   },
     h('span', { class: 'tt-num' }, t.num),
     h('span', { class: 'tt-func' }, f.short),
-    h('span', { class: 'tt-detail' }, detail),
+    h('span', { class: 'tt-detail' + (name ? ' named' : '') }, detail),
     h('span', { class: 'tt-flags' },
       t.type === 1 ? 'GATE' : t.type === 2 ? 'LATCH' : '',
       t.loop ? ' LOOP' : '',
-      f.plays && t.output ? (state.project.mode === 'mono' ? ` OUT${t.output + 1}` : ` PAIR${t.output + 1}`) : ''));
+      f.plays && t.output ? (mono ? ` OUT${t.output + 1}` : ` PAIR${t.output + 1}`) : ''));
 }
 
 export function renderTriggers() {
@@ -180,8 +231,11 @@ export function renderTriggers() {
   return h('div', { class: 'view triggers-view' },
     h('div', { class: 'toolbar' },
       h('span', { class: 'muted' }, 'Presets'),
-      PRESETS.map(pr => h('button', { class: 'btn tiny', title: presetDesc(pr, p.mode), onclick: () => applyPreset(pr) }, pr.name))),
-    h('div', { class: 'ttiles' }, p.triggers.map(x => tile(x, x.num === n))),
+      PRESETS.map(pr => h('button', { class: 'btn tiny', title: presetDesc(pr, p.mode), onclick: () => applyPreset(pr) }, pr.name)),
+      h('div', { class: 'spacer' }),
+      listPresets().length ? sel([['', 'My presets…'], ...listPresets().map(x => [x.id, x.name])], '', id => id && applyCustom(id), { class: 'tiny', 'aria-label': 'Apply one of my presets' }) : null,
+      h('button', { class: 'btn tiny', title: 'Save all 16 triggers (settings and names) as a preset in this browser', onclick: saveAsPreset }, 'Save as preset…')),
+    h('div', { class: 'ttiles' }, p.triggers.map(x => tile(x, x.num === n, mono))),
     h('div', { class: 'triggers-main' },
       h('div', { class: 'tedit' },
         h('div', { class: 'tedit-nav' },

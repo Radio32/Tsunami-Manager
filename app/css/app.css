@@ -502,7 +502,7 @@ body.dragging .dropbar { transform: translate(-50%, 0); pointer-events: auto; }
 .tt-num { grid-row: 1 / 4; font: 700 18px var(--mono); color: var(--accent); align-self: center; }
 .tt-func { font: 700 13px var(--mono); letter-spacing: .5px; }
 .ttile.ctl .tt-func { color: var(--accent-2); }
-.tt-detail { font: 12px var(--mono); color: var(--muted); }
+.tt-detail { font: 12px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tt-flags { font: 11px var(--mono); color: var(--type-ink); min-height: 1em; }
 .tedit { display: flex; flex-direction: column; gap: 8px; }
 .tedit-nav { display: flex; align-items: center; gap: 6px; }
@@ -585,3 +585,46 @@ table.kp thead th span { color: var(--faint); }
 .kp-cell select { width: 100%; font-size: 12px; padding: 1px 2px; }
 .kitplan { display: flex; flex-direction: column; gap: 10px; }
 .modal.wide { width: min(980px, 100%); }
+
+/* ---------- presets ---------- */
+.tname { flex: 0 1 200px; min-width: 90px; font-weight: 600; }
+.tt-detail.named { color: var(--text); font-family: var(--sans); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.om-f { display: inline-block; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.pad-slot { max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presets-main { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; align-items: start; }
+.plist { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; }
+.plist-item { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: var(--radius-s); border: 1px solid var(--line); background: var(--bg-2); cursor: pointer; }
+.plist-item:hover { border-color: var(--line-2); }
+.plist-item.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: var(--panel); }
+.plist-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plist-sub { font: 12px var(--mono); color: var(--muted); }
+.pedit { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pedit-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pedit-name { font: 600 22px/1.2 var(--display); text-transform: uppercase; letter-spacing: .06em; flex: 0 1 320px; min-width: 160px; }
+.psect { margin: 10px 0 0; font: 600 16px var(--display); text-transform: uppercase; letter-spacing: .07em; }
+.pnames { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; max-width: 900px; }
+.pname { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg-2); min-width: 0; }
+.pname.on { border-color: var(--accent); }
+.pname-num { font: 700 18px/1 var(--display); color: var(--accent); min-width: 1.2em; text-align: center; }
+.pname input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 3px 2px; font-weight: 600; }
+.pname input:focus { outline: none; }
+.pname:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+@media (max-width: 1000px) {
+  .presets-main { grid-template-columns: 1fr; }
+  .plist { position: static; flex-direction: row; flex-wrap: wrap; }
+  .pnames { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) { .pnames { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- folder import & bank names ---------- */
+.inbox-head .btn + .btn { margin-left: 0; }
+.bank-name { width: 200px; margin-left: 6px; font-weight: 600; }
+.folderplan { display: flex; flex-direction: column; gap: 12px; }
+.folderplan .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.fp-note { flex: 1; min-width: 220px; margin: 0; }
+.fp-skip ul { margin: 4px 0 0; }
+.fp-wrap { max-height: 46vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.fp-table td { white-space: nowrap; }
+.fp-path { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.fp-table .cell-input { width: 100%; min-width: 140px; border: 1px solid var(--line); background: var(--bg); }
+@media (max-width: 640px) { .bank-name { width: 140px; } }

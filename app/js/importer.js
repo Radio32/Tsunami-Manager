@@ -10,6 +10,7 @@ import { parseIni } from './ini.js';
 import { readZip } from './zip.js';
 import { uid, h } from './util.js';
 import { startJob, toast, modal } from './ui.js';
+import { screenFolder, folderDialog, JUNK, SCAN_LIMIT, MAX_DEPTH } from './folders.js';
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
@@ -126,7 +127,8 @@ function showFailed(failed) {
 
 /**
  * Files from a drop, including the contents of dropped folders (scanned recursively).
- * Each file gets `_folder` = the top-level folder it came from ('' for loose files).
+ * Each file gets `_folder` = the top-level folder it came from ('' for loose files) and
+ * `_path` = its own folder relative to the drop. The result has `hadFolders` when a folder was dropped.
  * Must be called synchronously inside the drop handler: the browser clears the
  * DataTransfer items once the handler yields.
  */
@@ -134,7 +136,7 @@ export function droppedFiles(dt) {
   const entries = [...(dt.items || [])].map(i => (i.kind === 'file' ? i.webkitGetAsEntry?.() : null));
   if (!entries.some(e => e?.isDirectory)) {
     const files = [...dt.files];
-    files.forEach(f => { f._folder = ''; });
+    files.forEach(f => { f._folder = ''; f._path = ''; });
     return Promise.resolve(files);
   }
   const loose = [...dt.files];
@@ -145,26 +147,29 @@ export function droppedFiles(dt) {
       if (!e) continue;
       if (e.isFile) {
         const f = await new Promise((res, rej) => e.file(res, rej)).catch(() => loose[i]);
-        if (f) { f._folder = ''; out.push(f); }
+        if (f) { f._folder = ''; f._path = ''; out.push(f); }
       } else await walk(e, e.name, out);
     }
+    out.hadFolders = true;
     return out;
   })();
 }
 
-async function walk(dir, top, out, depth = 0) {
-  if (depth > 8) return;
+// Collects every file below `dir` (screening happens later, so skipped files can be counted),
+// except hidden/system entries, which are only counted.
+async function walk(dir, path, out, depth = 0) {
+  if (depth > MAX_DEPTH) { out.tooDeep = (out.tooDeep || 0) + 1; return; }
   const reader = dir.createReader();
   for (;;) {
     const batch = await new Promise((res, rej) => reader.readEntries(res, rej)).catch(() => []);
     if (!batch.length) break;
     for (const e of batch) {
-      if (e.name.startsWith('.')) continue;
+      if (out.length >= SCAN_LIMIT) { out.truncated = true; return; }
+      if (JUNK.test(e.name)) { out.hidden = (out.hidden || 0) + 1; continue; }
       if (e.isFile) {
-        if (!AUDIO_EXT.test(e.name)) continue;
         const f = await new Promise((res, rej) => e.file(res, rej)).catch(() => null);
-        if (f) { f._folder = top; out.push(f); }
-      } else await walk(e, top, out, depth + 1);
+        if (f) { f._folder = path.split('/')[0]; f._path = path; out.push(f); }
+      } else await walk(e, `${path}/${e.name}`, out, depth + 1);
     }
   }
 }
@@ -173,11 +178,13 @@ const audioOnly = files => [...files].filter(f => AUDIO_EXT.test(f.name) && !f.n
   .sort((a, b) => collator.compare(a._folder || '', b._folder || '') || byName(a, b));
 
 // Import with explicit numbers. A track already on a target number moves to the Inbox.
-export async function importAssigned(assignments) {
+// `bankNames` ({ bank: name }) names the trigger banks the files land in.
+export async function importAssigned(assignments, { bankNames } = {}) {
   const { results, failed } = await ingestAll(assignments.map(a => a.file));
   const numOf = new Map(assignments.map(a => [a.file, a.num]));
   let firstId = null, placed = 0, inboxed = 0;
   update(p => {
+    if (results.length && bankNames) Object.assign(p.bankNames, bankNames);
     for (const r of results) {
       const num = numOf.get(r.file) ?? null;
       const t = newTrack({ name: labelFromSourceName(r.file.name), sourceId: r.sourceId, sourceName: r.file.name, info: r.info });
@@ -212,7 +219,7 @@ export async function importToPad(fileList, num) {
   if (audio.length === 1) return importAssigned([{ file: audio[0], num }]);
   if (pad <= 8) {
     const plan = await kitDialog(audio, bank);
-    return plan ? importAssigned(plan) : [];
+    return plan ? importAssigned(plan, { bankNames: plan.bankNames }) : [];
   }
   const slots = [];
   for (let k = pad; k <= 16; k++) if (isKitSlot(bank * 16 + k)) slots.push(bank * 16 + k);
@@ -244,7 +251,8 @@ export function applyIni(parsed) {
   update(p => {
     if (parsed.mode) p.mode = parsed.mode;
     p.global = parsed.global;
-    p.triggers = p.triggers.map(t => parsed.triggers.find(x => x.num === t.num) || { ...t, ...defaultTriggerFor(t.num) });
+    // tsunami.ini has no trigger names, so the project's names stay.
+    p.triggers = p.triggers.map(t => ({ ...(parsed.triggers.find(x => x.num === t.num) || { ...t, ...defaultTriggerFor(t.num) }), label: t.label || '' }));
   }, { reason: 'ini' });
 }
 
@@ -275,3 +283,22 @@ export async function openProjectBundle(file) {
   toast(`Opened “${project.name}”.`, { kind: 'ok' });
 }
 
+
+/**
+ * A picked or dropped folder (with subfolders): screen out what doesn't belong, confirm
+ * placement and bank names in a dialog, then import. `defaults` preselects the dialog
+ * ({ mode: 'banks' | 'order' | 'inbox', useNames }).
+ */
+export async function importFolder(files, defaults = {}) {
+  if (!files?.length && !files?.hidden) return [];
+  const scan = screenFolder(files);
+  if (!scan.audio.length && !scan.large.length && !scan.dupes.length) {
+    toast('No audio files found in that folder.', { kind: 'warn' });
+    return [];
+  }
+  const tops = new Set(files.map(f => (f._path || '').split('/')[0]).filter(Boolean));
+  const title = tops.size === 1 ? `Import folder “${[...tops][0]}”` : `Import ${tops.size || 1} folders`;
+  const plan = await folderDialog(scan, title, defaults);
+  if (!plan) return [];
+  return importAssigned(plan.out, { bankNames: plan.bankNames });
+}

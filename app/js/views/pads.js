@@ -4,11 +4,11 @@ import { h, fmtTime, pad4, clamp } from '../util.js';
 import { state, emit, trackByNum, select, update } from '../state.js';
 import { FUNC_BY_CODE, TRIGGER_BANKS } from '../constants.js';
 import { thumb } from './waveform.js';
-import { importFiles, importToPad, droppedFiles } from '../importer.js';
-import { slotFor } from '../kit.js';
+import { importFiles, importFolder, importToPad, droppedFiles } from '../importer.js';
+import { slotFor, triggerName } from '../kit.js';
 import { cycleTriggerOutput, outputLabel } from './outputs.js';
 import { audition, stopAudition, fmtPan } from './inspector.js';
-import { setTrackNum, pickFiles } from '../actions.js';
+import { setTrackNum, pickFiles, pickFolder } from '../actions.js';
 import { sim, press, release, activeTracks, stopAllSim, setSimBank } from '../sim.js';
 import { segmented, toggle, icon, badge } from '../ui.js';
 import { issuesByTrack } from '../validate.js';
@@ -82,6 +82,7 @@ function padEl(n, tracks, issues, layout) {
   const fl = sim.flash[n];
   const flashing = fl && performance.now() - fl.at < 160;
   const slot = slotFor(n);
+  const name = triggerName(trig);
   const classes = ['pad'];
   if (slot) classes.push('kit');
   if (trig.func !== 1) classes.push('func');
@@ -96,15 +97,15 @@ function padEl(n, tracks, issues, layout) {
   const typeBadge = trig.type === 1 ? badge('GATE', 'type') : trig.type === 2 ? badge('LATCH', 'type') : null;
   const el = h('div', {
     class: classes.join(' '), role: 'button', tabindex: 0, 'data-trig': n,
-    'aria-label': `Trigger ${n}${t ? ', ' + t.name : ''}`,
+    'aria-label': `Trigger ${n}${name ? ' (' + name + ')' : ''}${t ? ', ' + t.name : ''}`,
     title: trig.func === 1
-      ? `Trigger ${n} · track ${num}${slot ? ` · ${slot.label} slot` : ''}${t ? ' · ' + t.name : ''}\nClick: audition · Double-click: browse for samples · Drop files here${slot ? ' (several files = smart kit placement on pads 1–8)' : ''}`
-      : `Trigger ${n}: ${f.label}. ${f.help}`,
+      ? `Trigger ${n}${name ? ` “${name}”` : ''} · track ${num}${slot ? ` · ${slot.label} slot` : ''}${t ? ' · ' + t.name : ''}\nClick: audition · Double-click: browse for samples · Drop files here${slot ? ' (several files = smart kit placement on pads 1–8)' : ''}`
+      : `Trigger ${n}${name ? ` “${name}”` : ''}: ${f.label}. ${f.help}`,
   },
     h('div', { class: 'pad-top' },
       h('span', { class: 'pad-trig' }, `${n}`, h('small', null, state.ui.perform ? PERFORM_KEYS[n - 1].toUpperCase() : '')),
       trig.func === 1 ? h('span', { class: 'pad-tnum' }, pad4(num)) : null,
-      slot && trig.func === 1 ? h('span', { class: 'pad-slot' }, slot.short) : null,
+      name || (slot && trig.func === 1) ? h('span', { class: 'pad-slot' }, name || slot.short) : null,
       h('span', { class: 'pad-badges' },
         typeBadge,
         trig.loop ? badge('LOOP', 'loop') : null,
@@ -121,7 +122,7 @@ function padEl(n, tracks, issues, layout) {
             p.mode === 'stereo' && t.edits.pan ? h('span', { class: 'pad-pan', title: 'Pan' }, fmtPan(t.edits.pan)) : null,
             sev ? h('span', { class: 'sev-dot ' + sev }, icon('warn')) : null,
             state.ui.perform ? null : outButton(n, trig))]
-        : [h('div', { class: 'pad-empty' }, slot ? h('strong', null, slot.label) : null, h('span', null, 'drop or double-click')),
+        : [h('div', { class: 'pad-empty' }, name || slot ? h('strong', null, name || slot.label) : null, h('span', null, 'drop or double-click')),
           state.ui.perform ? null : h('div', { class: 'pad-foot' }, h('span'), outButton(n, trig))]);
 
   if (state.ui.perform) {
@@ -158,7 +159,7 @@ function bankMap(tracks) {
     grid.appendChild(h('button', {
       class: 'bm' + (b === state.ui.padBank ? ' on' : '') + (c ? ' used' : ''),
       style: c ? { '--fill': (0.25 + 0.75 * c / 16).toFixed(2) } : null,
-      title: `Bank ${b}: tracks ${b * 16 + 1}–${b * 16 + 16}${c ? ` · ${c} used` : ''}`,
+      title: `Bank ${b}${state.project.bankNames[b] ? ` “${state.project.bankNames[b]}”` : ''}: tracks ${b * 16 + 1}–${b * 16 + 16}${c ? ` · ${c} used` : ''}`,
       onclick: () => setBank(b),
     }));
   }
@@ -170,7 +171,8 @@ function inboxStrip() {
   return h('div', { class: 'inbox-strip' },
     h('div', { class: 'inbox-head' },
       h('strong', null, 'Inbox'), h('span', { class: 'muted' }, inbox.length ? ` ${inbox.length} unnumbered — drag onto a pad` : ' empty'),
-      h('button', { class: 'btn tiny', onclick: async () => importFiles(await pickFiles()) }, icon('plus'), 'Import files')),
+      h('button', { class: 'btn tiny', onclick: async () => importFiles(await pickFiles()) }, icon('plus'), 'Import files'),
+      h('button', { class: 'btn tiny', title: 'A folder and its subfolders — each folder can become its own named bank', onclick: async () => importFolder(await pickFolder()) }, icon('plus'), 'Import folder…')),
     inbox.length ? h('div', { class: 'chips' }, inbox.slice(0, 200).map(t => {
       const c = h('button', { class: 'chip' + (state.ui.selectedId === t.id ? ' on' : ''), onclick: () => select(t.id), ondblclick: () => audition(t) }, t.name);
       dragSource(c, t.id);
@@ -184,7 +186,7 @@ function lanesView(tracks, counts) {
   const nBanks = Math.max(8, last + 2);
   const table = h('table', { class: 'lanes' });
   table.appendChild(h('thead', null, h('tr', null, h('th', null, 'Trig'),
-    Array.from({ length: nBanks }, (_, b) => h('th', { class: b === state.ui.padBank ? 'on' : '' },
+    Array.from({ length: nBanks }, (_, b) => h('th', { class: b === state.ui.padBank ? 'on' : '', title: p.bankNames[b] || null },
       h('button', { class: 'linkish', onclick: () => { setBank(b); state.ui.padsMode = 'pads'; emit('view'); } }, `B${b}`))))));
   const body = h('tbody');
   for (let n = 1; n <= 16; n++) {
@@ -227,7 +229,12 @@ export function renderPads() {
         h('span', { class: 'muted small' }, 'Trigger bank'),
         h('input', { class: 'num bank-input', type: 'number', min: 0, max: 255, value: bank, onchange: e => setBank(+e.target.value || 0) })),
       h('button', { class: 'icon-btn', title: 'Next bank (→)', onclick: () => setBank(bank + 1), disabled: bank === 255 }, icon('chev')),
-      h('span', { class: 'muted' }, `tracks ${bank * 16 + 1}–${bank * 16 + 16}`)),
+      h('span', { class: 'muted' }, `tracks ${bank * 16 + 1}–${bank * 16 + 16}`),
+      h('input', {
+        class: 'bank-name', type: 'text', maxlength: 32, placeholder: 'Name this bank', value: p.bankNames[bank] || '', 'data-fk': 'bank-name',
+        'aria-label': `Name of bank ${bank}`,
+        onchange: e => update(pp => { const v = e.target.value.trim(); if (v) pp.bankNames[bank] = v; else delete pp.bankNames[bank]; }, { reason: 'settings' }),
+      })),
     h('div', { class: 'spacer' }),
     segmented([['pads', 'Pads'], ['lanes', 'Lanes']], mode, v => { state.ui.padsMode = v; emit('view'); }),
     mode === 'pads' ? segmented([['4x4', '4×4'], ['2x8', '2×8']], layout, v => update(pp => { pp.ui.padLayout = v; }, { undo: false })) : null,
@@ -246,6 +253,7 @@ export function renderPads() {
       h('p', null, 'Drop audio files on a pad (or anywhere), open an existing SD card in the Card doctor, or start from a demo kit. Every file is converted to 44.1 kHz 16-bit ', p.mode, ' WAV with a clean header when you export.')),
     h('div', { class: 'welcome-actions' },
       h('button', { class: 'btn primary', onclick: async () => importFiles(await pickFiles(), { useNames: true }) }, icon('plus'), 'Import audio…'),
+      h('button', { class: 'btn', onclick: async () => importFolder(await pickFolder()) }, icon('plus'), 'Import folder…'),
       h('button', { class: 'btn', onclick: () => { state.ui.view = 'card'; emit('view'); } }, icon('card'), 'Open SD card…'),
       h('button', { class: 'btn', onclick: loadDemo }, 'Load demo kits')));
 

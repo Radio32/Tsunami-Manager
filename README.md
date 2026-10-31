@@ -18,6 +18,11 @@ there is no build step. Use **Chrome or Edge** to write to the SD card and reach
   Perc 1, Perc 2, Cym): drop several files or whole folders on one and they're placed by name,
   with extra sounds of the same kind continuing in the next banks (up to 8 banks per drop).
   *Lanes* shows each trigger across banks; *Perform* emulates the hardware from the keyboard.
+- **Folder import:** pick or drop a folder with subfolders. A confirmation shows what will be
+  imported and what's left out (hidden and system files, non-audio files, empty files, duplicates,
+  and files over 50 MB unless you include them), at most 1000 files at a time. Each folder can get
+  its own trigger bank, named after the folder; you can rename the banks before importing and later
+  on the Pads page.
 - **Tracks:** every track in one table, with search, filters and batch edits (numbering,
   normalise, gain, channels, MIDI flags, auto-trim, synced sets).
 - **Inspector:** waveform with draggable trim and fades, silence trimming, reverse, peak or RMS
@@ -28,6 +33,9 @@ there is no build step. Use **Chrome or Edge** to write to the SD card and reach
 - **Triggers:** all 14 trigger functions, Edge/Level/Latch, range, output, gain and flags, with
   presets (drum kits + bank switch, gate/sustain, round-robin, stem launcher…) and a live
   `tsunami.ini` preview.
+- **Presets:** your own trigger maps: a name and settings for each of the 16 triggers, saved in
+  this browser and applied to any project. Names show on the pads, trigger tiles and output grid.
+  Export presets to a `.json` file to back them up or move them to another computer.
 - **Global settings:** firmware (mono/stereo) and board, output levels, output assignment
   (a trigger × output grid), debounce, MIDI, normalisation, dither and file naming. Open them from
   any page with **Global** or **G**.
