@@ -161,7 +161,7 @@ function renderHeader() {
     h('div', { class: 'spacer' }),
     h('span', { class: 'save-state ' + save }, save === 'saved' ? 'Saved' : save === 'error' ? 'Save failed' : 'Saving…'),
     h('button', { class: 'btn global-btn' + (state.ui.globalOpen ? ' on' : ''), title: 'Global settings: firmware, outputs, debounce, MIDI, processing (G)', onclick: () => toggleGlobal() }, icon('settings'), 'Global'),
-    h('button', { class: 'icon-btn', title: 'Switch theme: Night / Parchment', onclick: toggleTheme }, icon('theme')),
+    h('button', { class: 'icon-btn', title: 'Switch theme: dark / light', onclick: toggleTheme }, icon('theme')),
     h('button', { class: 'icon-btn', title: 'Undo (⌘Z)', disabled: !canUndo(), onclick: undo }, icon('undo')),
     h('button', { class: 'icon-btn', title: 'Redo (⇧⌘Z)', disabled: !canRedo(), onclick: redo }, icon('redo')),
     h('button', { class: 'btn primary', onclick: () => setView('export') }, icon('export'), 'Export'));
@@ -243,8 +243,10 @@ document.addEventListener('keydown', e => {
     if (ids.length) { e.preventDefault(); deleteTracks(ids); }
   } else if (e.key.toLowerCase() === 'g' && !mod && !state.ui.perform) {
     toggleGlobal();
-  } else if (/^[1-8]$/.test(e.key) && e.altKey) {
-    setView(VIEWS[+e.key - 1].key);
+  } else if (e.altKey && /^Digit[1-9]$/.test(e.code) && VIEWS[+e.code.slice(5) - 1]) {
+    // e.code, not e.key: Option+1 types "¡" on a Mac
+    e.preventDefault();
+    setView(VIEWS[+e.code.slice(5) - 1].key);
   }
 });
 document.addEventListener('keyup', padsKeyup);

@@ -7,6 +7,8 @@ written straight to the card.
 
 **Use it:** https://radio32.github.io/Tsunami-Manager/
 
+**Quick reference manual:** https://radio32.github.io/Tsunami-Manager/manual.html
+
 Everything runs in the browser. No sound is uploaded anywhere, nothing needs installing, and
 there is no build step. Use **Chrome or Edge** to write to the SD card and reach the hardware
 (Web MIDI, Web Serial). Firefox and Safari can do everything else and save a ZIP instead.
@@ -57,7 +59,7 @@ one up or move it to another computer.
 - **Stereo firmware.** It won't play mono files, so mono sources are written as stereo on export.
 - **Bank navigation on triggers 15/16.** New projects set T15 = Bank Down and T16 = Bank Up, so
   each bank is a 14-sound kit. Auto-numbering skips the 15/16 slots.
-- **Themes.** Light and dark, matching the
+- **Themes.** Light (pale sage) and dark, in the style of the
   [Performer Library Manager](https://radio32.github.io/Performer-Library-manager/). Toggle in the
   header.
 

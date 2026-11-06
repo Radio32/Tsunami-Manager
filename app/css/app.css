@@ -1,5 +1,5 @@
-/* Nutella Tsunami Manager — styled to match the Performer Library Manager:
-   sand paper and ink in light, deep teal-black in dark, one verdigris accent,
+/* Nutella Tsunami Manager — styled after the Performer Library Manager:
+   pale sage paper and ink in light, deep teal-black in dark, one verdigris accent,
    Barlow Condensed headings over IBM Plex Sans / Plex Mono. */
 
 :root {
@@ -44,17 +44,17 @@
   --aurora: linear-gradient(90deg, transparent, rgba(79, 214, 195, .55) 30%, rgba(40, 90, 200, .35) 75%, transparent);
   color-scheme: dark;
 }
-/* The moodboard's paper: sand, with ink-dark text. */
+/* Light: pale sage paper with ink-dark text. */
 :root[data-theme="parchment"] {
-  --bg: #ebe3d0;
-  --bg-2: #e4dbc5;
-  --panel: #f7f2e6;
-  --panel-2: #fbf8f0;
-  --line: #cbbfa3;
-  --line-2: #b3a688;
-  --text: #172321;
-  --muted: #56625e;
-  --faint: #847e6e;
+  --bg: #e3ebe2;
+  --bg-2: #d9e3d7;
+  --panel: #f0f5ee;
+  --panel-2: #f7faf5;
+  --line: #b6c8b5;
+  --line-2: #98ae98;
+  --text: #142420;
+  --muted: #4c6058;
+  --faint: #778a81;
   --accent: #0e6b60;
   --accent-ink: #ffffff;
   --accent-2: #2f6a3e;
@@ -62,17 +62,17 @@
   --warn: #8f6416;
   --bad: #a3441f;
   --wave: #1c3436;
-  --wave-dim: #b5ae96;
-  --wave-bg: #e0d6bf;
-  --ok-bg: #dbe5cc; --warn-bg: #efdcb2; --bad-bg: #f0d3c3; --bad-ink: #8a3317;
-  --pos-bg: #cfe3d8; --loop-bg: #d5e6d0; --out-bg: #d9e2e3; --type-bg: #e2dfea; --type-ink: #4b4a7a;
-  --row-line: #ddd2b9; --row-hover: #f0e9da; --row-sel: #dbe9e0; --row-multi: #e4ece2;
-  --code-bg: #fbf8f0; --code-ink: #172321;
-  --key-white: #fbf8f0; --key-black: #d8ccb0; --key-has: #cfe3d8; --key-black-has: #b9d4c6; --key-has-line: var(--accent);
-  --drop-bg: #cfe3d8; --hit-bg: #b4d6c9;
-  --batch-bg: #dceae2; --batch-line: #8fbcae;
-  --banner-bg: #efdcb2; --logo-bg: #172321;
-  --scrim: rgba(40, 30, 15, .35); --shadow: rgba(60, 40, 10, .22);
+  --wave-dim: #a9bdaa;
+  --wave-bg: #d4e0d2;
+  --ok-bg: #d3e6cd; --warn-bg: #ece2b9; --bad-bg: #f0d6ca; --bad-ink: #8a3317;
+  --pos-bg: #cbe3d8; --loop-bg: #d0e6d0; --out-bg: #d4e2e3; --type-bg: #dde2ea; --type-ink: #4b4a7a;
+  --row-line: #cfdccc; --row-hover: #e9f0e6; --row-sel: #d3e7dc; --row-multi: #deebde;
+  --code-bg: #f7faf5; --code-ink: #142420;
+  --key-white: #f7faf5; --key-black: #c8d6c5; --key-has: #cbe3d8; --key-black-has: #b2d0c1; --key-has-line: var(--accent);
+  --drop-bg: #cbe3d8; --hit-bg: #aed3c2;
+  --batch-bg: #d6e9df; --batch-line: #8dbba9;
+  --banner-bg: #ece2b9; --logo-bg: #142420;
+  --scrim: rgba(15, 35, 25, .35); --shadow: rgba(20, 50, 35, .2);
   --sky: radial-gradient(ellipse 70% 45% at 12% 0%, rgba(14, 107, 96, .10), transparent 70%),
          radial-gradient(ellipse 60% 40% at 92% 4%, rgba(30, 70, 140, .08), transparent 70%);
   --aurora: linear-gradient(90deg, transparent, rgba(14, 107, 96, .55) 30%, rgba(30, 70, 140, .30) 75%, transparent);
